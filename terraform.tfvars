@@ -7,7 +7,7 @@ vms = {
       machine_type = "n1-standard-4"
       spot_vm      = true,
       accelerator = {
-        type  = "nvidia-tesla-t4"
+        type  = "nvidia-tesla-l4"
         count = 1
       },
       work = "nvidia-smi > /tmp/a"

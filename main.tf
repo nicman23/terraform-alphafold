@@ -82,8 +82,7 @@ resource "google_compute_instance" "default" {
   name         = each.key
   machine_type = each.value.machine_type
   
-#  machine_type = "e2-medium"
-  zone         = "us-central1-a"
+  zone         = "europe-central2"
 
   # Define the boot disk
   boot_disk {
