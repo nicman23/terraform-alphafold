@@ -22,6 +22,7 @@ variable "vms" {
     machine_type       = string
     spot_vm            = optional(bool, false)
     work               = optional(string)
+    zone               = optional(string)
     accelerator        = optional(object({
       type  = string
       count = number
@@ -30,7 +31,8 @@ variable "vms" {
   default = {
     "vm-01" = {
       machine_type = "e2-medium"
-      spot_vm      = true,
+      spot_vm      = true
+      zone         = "us-central1-a"
       work = "apt update && apt install -y htop"
     },
     "vm-02" = {
@@ -82,12 +84,12 @@ resource "google_compute_instance" "default" {
   name         = each.key
   machine_type = each.value.machine_type
   
-  zone         = "europe-central2"
-
+  zone = try(each.value.zone, null)
+    
   # Define the boot disk
   boot_disk {
     initialize_params {
-      image = "debian-cloud/debian-11"
+      image = "rocky-linux-accelerator-cloud/rocky-linux-9-optimized-gcp-nvidia-580-v20250912"
     }
   }
 
@@ -123,6 +125,12 @@ resource "google_compute_instance" "default" {
   # Use a startup script to run a simple bash command
   metadata_startup_script = <<-EOF
   #!/bin/bash
+
+
+  while ! ping -c 1 1.1.1.1; do
+    sleep 1
+  done
+
   echo "${var.welcome_message} This is VM ${each.key}." # | nc 94.131.37.130 6666
 
   (
@@ -137,13 +145,25 @@ resource "google_compute_instance" "default" {
   chmod 600 /root/.ssh/authorized_keys
 
   sed -i 's/PermitRootLogin no/PermitRootLogin yes/g' /etc/ssh/sshd_config
+  sed -i -r 's/PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
+  systemctl restart ssh ||
+  systemctl restart sshd # rhel
+  
+  (
+    dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+    dnf install -y docker-ce docker-ce-cli containerd.io
+    curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | \
+    tee /etc/yum.repos.d/nvidia-container-toolkit.repo
+    dnf config-manager --enable nvidia-container-toolkit-experimental
 
-  systemctl restart ssh
+    dnf install -y \
+        nvidia-container-toolkit \
+        nvidia-container-toolkit-base \
+        libnvidia-container-tools \
+        libnvidia-container1
 
-  while ! ping -c 1 1.1.1.1; do
-    sleep 1
-  done
-
+    systemctl enable --now docker
+  ) &> /tmp/install
   ${each.value.work}
   EOF
 }
