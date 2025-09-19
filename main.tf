@@ -8,7 +8,7 @@ terraform {
 }
 
 variable project_id {
-  default = "optical-precept-472510-p2"
+  default = "nop"
 }
 
 provider "google" {
