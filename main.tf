@@ -21,8 +21,8 @@ variable "vms" {
   type = map(object({
     machine_type       = string
     spot_vm            = optional(bool, false)
-    work               = optional(string)
-    zone               = optional(string)
+    work               = optional(string, "true")
+    zone               = optional(string, "europe-north1-a")
     accelerator        = optional(object({
       type  = string
       count = number
@@ -91,6 +91,7 @@ resource "google_compute_instance" "default" {
     initialize_params {
       image = "rocky-linux-accelerator-cloud/rocky-linux-9-optimized-gcp-nvidia-580-v20250912"
     }
+    auto_delete = false
   }
 
   # Define the network interface
