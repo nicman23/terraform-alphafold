@@ -1,0 +1,4 @@
+#!/bin/bash
+source $(dirname $(realpath $0))/lib.sh
+name=$1
+delete_vm 

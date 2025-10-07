@@ -1,0 +1,5 @@
+#!/bin/bash
+source $(dirname $(realpath $0))/lib.sh
+
+refresh_state &> /dev/null
+list_running

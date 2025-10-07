@@ -1,0 +1,13 @@
+{
+  "zone": "dummy",
+  "machine_type": "a3-highgpu-1g",
+  "accelerator": {
+    "type": "nvidia-h100-80gb",
+    "count": 1
+  },
+  "boot_image": "af-33",
+  "boot_image_size": 1000,
+  "spot_vm": true,
+  "auto_delete": true,
+  "work": "echo true"
+}

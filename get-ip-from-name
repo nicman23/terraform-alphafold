@@ -1,0 +1,14 @@
+#!/bin/bash
+source $(dirname $(realpath $0))/lib.sh
+
+name=$1
+
+if [ -z "$name" ];then
+  for name in $(eval echo $(list_running)); do
+    echo -n $name :\ \ \ 
+    get_ip_from_name $name
+  done
+else
+  refresh_state &> /dev/null
+  get_ip_from_name
+fi

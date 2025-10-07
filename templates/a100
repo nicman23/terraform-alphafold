@@ -1,0 +1,13 @@
+{
+  "zone": "dummy",
+  "machine_type": "a2-ultragpu-1g",
+  "accelerator": {
+    "type": "nvidia-a100-80gb",
+    "count": 1
+  },
+  "boot_image": "af-33",
+  "boot_image_size": 750,
+  "spot_vm": true,
+  "auto_delete": true,
+  "work": "echo true  "
+}
