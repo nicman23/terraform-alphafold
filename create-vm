@@ -1,3 +1,5 @@
 #!/bin/bash
 source $(dirname $(realpath $0))/lib.sh
+name=$1
+shift 1
 create_vm "$@"

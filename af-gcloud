@@ -6,7 +6,7 @@ if [ -z "$STY" ]; then
 #  exit
 fi
 
-#bash /home/gcloudPuppet/terraform-alphafold/auth.sh
+bash /home/gcloudPuppet/terraform-alphafold/auth.sh
 
 create_and_send () {
   name="vm-$(uuidgen)"
@@ -35,7 +35,7 @@ af_do_work() {
   for i in *json; do
     mkdir -p /root/workdir/\$i
     [ -e /root/af_output/\$i ] && continue
-    docker run -t \
+    docker run --name main -d  \
       --volume /root/:/root/ \
       --gpus=all \
       alphafold3 \
@@ -43,6 +43,9 @@ af_do_work() {
       --json_path=/root/af_input/\$i \
       --model_dir=/root/models \
       --output_dir=/root/workdir/\$i
+    docker wait main
+    docker logs main > /root/workdir/\$i/log
+    docker rm main
     mv /root/workdir/\$i /root/af_output/
     echo \$i >> /root/work_done
 
@@ -72,10 +75,10 @@ EOF
 )  &>> out.rsync &
 
   while ! sssh $ip cat final_done; do
-    sssh -t $ip 'bash work.sh' ||
+    sssh $ip 'bash work.sh' ||
     check_health
   done
-
+  wait
 }
 
 get_msa_too() {
@@ -99,7 +102,7 @@ mkdir -p af_output
 already_done=( $(cd af_output ; ls | sed 's~^~af_input/~g') )
 files=( $(find af_input -name \*json | while read l; do [[  "${already_done[@]}" =~ "$l"  ]] || echo $l; done) )
 files_m=$(( ${#files[@]} -1 ))
-max_vms=10
+max_vms=4
 max_vms=$((max_vms -1 ))
 step=$(( files_m / max_vms ))
 files_i=0

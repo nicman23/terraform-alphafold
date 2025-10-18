@@ -1,0 +1,13 @@
+#!/bin/bash
+source $(dirname $(realpath $0))/lib.sh
+
+name=$1
+
+if [ -z "$name" ];then
+  for name in $(eval echo $(list_running)); do
+    echo -n $name :\ \ \ 
+    check_health
+  done
+else
+  check_health
+fi

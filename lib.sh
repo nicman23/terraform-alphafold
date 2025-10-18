@@ -87,13 +87,12 @@ delete_vm () {
 }
 
 get_ip_from_name() {
-  jq '.resources[].instances[] | select(.index_key = "'$name'") | .attributes.network_interface[0].access_config[0].nat_ip' < $DIRPATH/terraform.tfstate | cut -f2 -d\"
+  jq -r '.resources[].instances[] | select(.index_key == "'$name'") | .attributes.network_interface[0].access_config[0].nat_ip' < $DIRPATH/terraform.tfstate
 
 }
 
 get_zone_from_name() {
-  jq -r '.resources[].instances[] | select(.index_key = "'$name'") | .attributes.zone' < $DIRPATH/terraform.tfstate
-
+  jq -r '.vms."'$name'".zone' < $DIRPATH/terraform.tfvars.json
 }
 
 check_health() {
@@ -102,13 +101,16 @@ check_health() {
 
   case "$status" in
     RUNNING)
+      echo $name is running 2> /dev/null
       return 0
         ;;
     TERMINATED)
+      echo $name was down\; starting 2> /dev/null
       gcloud compute instances start "$name" --zone="$zone"
         ;;
     *)
-      sleep 10
+      echo $status; echo trye
+      sleep 10;
       status=$(gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null)
         ;;
   esac
