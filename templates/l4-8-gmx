@@ -1,13 +1,13 @@
 {
   "zone": "dummy",
-  "machine_type": "g2-standard-96",
+  "machine_type": "g4-standard-96",
   "accelerator": {
-    "type": "nvidia-l4",
-    "count": 8
+    "type": "nvidia-rtx-pro-6000",
+    "count": 2
   },
   "boot_image": "gmx",
   "boot_image_size": 200,
-  "spot_vm": false,
-  "auto_delete": false,
+  "spot_vm": true,
+  "auto_delete": true,
   "work": "echo true  "
 }

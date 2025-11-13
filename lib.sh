@@ -43,7 +43,7 @@ create_vm () {
   [ -z "$name" ] && name=vm-$(uuidgen)
 
   template=$1
-  if [ ! -e $DIRPATH/templates/${template} ]; then
+  if [ ! -e "$DIRPATH/templates/${template}" ]; then
     echo please select from :
     ls $DIRPATH/templates/ | sed "s~$DIRPATH/templates/~~g"
     echo as a first arguement
