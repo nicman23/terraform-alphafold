@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
-export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json \
-PATH="$(dirname $(realpath $0))/google-cloud-sdk/bin:$PATH"
+# export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json \
+export PATH="$(dirname $(realpath $0))/google-cloud-sdk/bin:$PATH"
 DIRPATH="$(dirname $(realpath $0))"
 tfvar=terraform.tfvars.json
 tfvar_tmp=$DIRPATH/tmp_$tfvar
@@ -87,7 +87,7 @@ delete_vm () {
 }
 
 get_ip_from_name() {
-  jq -r '.resources[].instances[] | select(.index_key == "'$name'") | .attributes.network_interface[0].access_config[0].nat_ip' < $DIRPATH/terraform.tfstate
+  jq -r '.resources[].instances[] | if .schema_version == 6 then select(.index_key == "'$name'") else empty end | .attributes.network_interface[0].access_config[0].nat_ip' < $DIRPATH/terraform.tfstate
 
 }
 
@@ -140,10 +140,10 @@ check_health() {
 
 
 list_defined() {
-  jq -r '.resources[].instances[].index_key' < $DIRPATH/terraform.tfstate
+  jq -r '.resources[].instances[] | if .schema_version == 6 then select(.index_key == "'$name'") else empty end | .attributes.network_interface[0].access_config[0].nat_ip' < $DIRPATH/terraform.tfstate
 }
 
 
 list_running() {
-  jq -r '.resources[].instances[].index_key' < $DIRPATH/terraform.tfstate
+  jq -r '.resources[].instances[] | if .schema_version == 6 then .attributes.name else empty end' < $DIRPATH/terraform.tfstate
 }
