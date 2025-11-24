@@ -9,11 +9,11 @@ tfvar=$DIRPATH/$tfvar
 zone=europe
 
 sssh() {
-  ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l root "$@"
+  ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 -l root $(get_ip_from_name) "$@"
 }
 
 srsync() {
-  rsync -e 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -l root' "$@"
+  rsync -r -e 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 -l root' $(get_ip_from_name):"$1" "$2"
 }
 
 apply_changes() {
@@ -95,21 +95,42 @@ get_zone_from_name() {
   jq -r '.vms."'$name'".zone' < $DIRPATH/terraform.tfvars.json
 }
 
+check_responding() {
+  cat << EOF | timeout 10 bash -
+  $(type get_ip_from_name | sed 1d)
+
+  $(type sssh | sed 1d)
+
+  DIRPATH=$DIRPATH
+  name=$name
+  sssh true
+EOF
+}
+
+reset_vm() {
+  gcloud compute instances reset $name --zone=$zone
+}
+
 check_health() {
   zone=$(get_zone_from_name)
   status=$(gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null)
 
   case "$status" in
     RUNNING)
-      echo $name is running 2> /dev/null
+      if check_responding; then
+        echo is running 2> /dev/null
+      else
+        echo is not responding - reseting
+        reset_vm & disown
+      fi
       return 0
         ;;
     TERMINATED)
-      echo $name was down\; starting 2> /dev/null
+      echo was down\; starting 2> /dev/null
       gcloud compute instances start "$name" --zone="$zone"
         ;;
     *)
-      echo $status; echo trye
+      echo invalid state "$status";
       sleep 10;
       status=$(gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null)
         ;;
