@@ -35,11 +35,13 @@ create_and_send () {
 af_do_work() {
 
   (
+    sssh 'rm -rf af_output af_input workdir work_done'
     cat $1 | sssh 'zstd -d | tar -xf -'
   ) &>> ${name}.sender.log
 
   cat << EOF | sssh cat - \> work.sh
   ln -fs /root/mlibs /root/public_databases
+  rm -rf af_output workdir
   mkdir af_output workdir
   cd af_input
   rm /root/work_done /root/final_done
@@ -62,7 +64,7 @@ af_do_work() {
     docker wait main
     docker logs main > /root/workdir/\$i/log
     docker rm main
-    mv /root/workdir/\$i /root/af_output/
+    mv /root/workdir/\$i /root/af_output/\$i
     echo \$i >> /root/work_done
 
   done
@@ -73,30 +75,32 @@ EOF
 (
   sleep 1m
   while ! sssh cat final_done; do
-    sleep 10m
+    sleep 20
     if sssh cat work_done; then
-      fetcher
+#      sssh tar cf - af_output \| zstd -3 | unzstd | tar -xf -
+     fetcher
     fi
   done
-  touch af_output/final_done
 )  &>> ${name}.fetch.log &
 
   while ! sssh cat final_done; do
     sssh 'bash work.sh' &>> ${name}.work.log ||
-    check_health
+     check_health
   done
-  fetcher
+  sssh tar cf - af_output \| zstd -3 | unzstd | tar -xf -
   touch af_output/final_done
 }
 
 fetcher() {
+  set -x
   buf="$(sssh cat work_done)"
   for l in $buf; do
-    mkdir -p af_output/workdir/
+    mkdir -p af_output/workdir/$l
     srsync /root/af_output/$l af_output/workdir/$l
-    mv af_output/$l af_output/$l
+    mv af_output/workdir/$l af_output/$l
   done
   sssh rm work_done
+  set +x
 }
 
 get_msa_too() {
@@ -156,7 +160,7 @@ mkdir -p af_output
 already_done=( $(cd af_output ; ls | sed 's~^~af_input/~g') )
 files=( $(find af_input -name \*json | while read l; do [[  "${already_done[@]}" =~ "$l"  ]] || echo $l; done) ) > /dev/null
 files_m=$(( ${#files[@]} -1 ))
-max_vms=8
+max_vms=4
 #max_vms=$((max_vms -1 ))
 step=$(( files_m / max_vms ))
 files_i=0

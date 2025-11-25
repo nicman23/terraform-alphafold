@@ -11,8 +11,13 @@ variable project_id {
   default = "nop"
 }
 
+variable project_key {
+  default = "nop"
+}
+
 provider "google" {
   project = var.project_id
+  credentials = file(var.project_key)
 }
 
 # Define a map variable for VM instance configurations

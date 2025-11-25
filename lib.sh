@@ -9,11 +9,11 @@ tfvar=$DIRPATH/$tfvar
 zone=europe
 
 sssh() {
-  ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 -l root $(get_ip_from_name) "$@"
+  ssh -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=15 -l root $(get_ip_from_name) "$@"
 }
 
 srsync() {
-  rsync -r -e 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 -l root' $(get_ip_from_name):"$1" "$2"
+  rsync -r -e 'ssh -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 -l root' $(get_ip_from_name):"$1" "$2"
 }
 
 apply_changes() {

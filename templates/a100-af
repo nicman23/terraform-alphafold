@@ -5,7 +5,7 @@
     "type": "nvidia-a100-80gb",
     "count": 1
   },
-  "boot_image": "af-34",
+  "boot_image": "af-33",
   "boot_image_size": 750,
   "spot_vm": true,
   "auto_delete": true,
