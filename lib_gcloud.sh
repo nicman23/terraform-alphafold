@@ -3,14 +3,14 @@
 zone=europe
 
 get_sub_zones() {
-  zones_file="${DIRPATH:-.}/zones.gcloud.cache"
+  zones_file="${DIRPATH:-.}/.zones.gcloud.cache"
   if [ ! -f "$zones_file" ] || [ "$(find "$zones_file" -mtime +5 -print -quit)" ]; then
     echo "Refreshing zones cache: $zones_file" >&2
     gcloud compute machine-types list > "$zones_file"
   else
     echo "Using cached zones file: $zones_file" >&2
   fi
-  cat "$zones_file" | grep $machine_type | grep $zone | awk '{print $2}' >> "$zones_file"
+  cat "$zones_file" | grep $machine_type | grep $zone | awk '{print $2}'
 }
 
 get_ip_from_name() {
