@@ -1,9 +1,9 @@
 .terraform.lock.hcl
 .terraform/
 google-cloud-sdk/
-optical-precept-472510-p2-12dd11eff4a9.json
 terraform
 terraform.tfstate
 terraform.tfstate.backup
 terraform.tfvars.json
 tmp_terraform.tfvars.json
+templates/
