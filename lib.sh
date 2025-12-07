@@ -1,6 +1,5 @@
 #!/bin/bash -e
 
-# export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json \
 export PATH="$(dirname $(realpath $0))/google-cloud-sdk/bin:$PATH"
 DIRPATH="$(dirname $(realpath $0))"
 tfvar=terraform.tfvars.json
@@ -8,7 +7,31 @@ tfvar_tmp=$DIRPATH/tmp_$tfvar
 tfvar=$DIRPATH/$tfvar
 
 source $DIRPATH/lib_gcloud.sh
-# source $DIRPATH/lib_aws.sh
+source $DIRPATH/lib_aws.sh
+
+get_sub_zones() {
+  get_sub_zones_${cloud} "$@"
+}
+get_ip_from_name() {
+  get_ip_from_name_${cloud} "$@"
+}
+get_zone_from_name() {
+  get_zone_from_name_${cloud} "$@"
+}
+reset_vm() {
+  reset_vm_${cloud} "$@"
+}
+check_health() {
+  check_health_${cloud} "$@"
+}
+list_defined() {
+  list_defined_${cloud} "$@"
+}
+list_running() {
+  list_running_${cloud} "$@"
+}
+
+
 
 sssh() {
   ssh -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=15 -l root $(get_ip_from_name) "$@"
@@ -41,8 +64,14 @@ refresh_state() {
 create_vm () {
   wait_for_lock
   touch $tfvar_tmp
-
   [ -z "$name" ] && name=vm-$(uuidgen)
+
+  # fail if the requested name is already present in the terraform vars json
+  if jq -e --arg nm "$name" '.vms[$nm]' "$tfvar" >/dev/null 2>&1; then
+    echo "name '$name' already defined in $tfvar"
+    rm -f "$tfvar_tmp"
+    return 1
+  fi
 
   template=$1
   if [ ! -e "$DIRPATH/templates/${template}" ]; then
@@ -51,9 +80,9 @@ create_vm () {
     echo as a first arguement
   fi
   shift
-  work="$@"
-  machine_type=$(eval echo $(jq .machine_type < $DIRPATH/templates/${template}))
 
+  machine_type=$(eval echo $(jq .machine_type < $DIRPATH/templates/${template}))
+  cloud=$(eval echo $(jq .cloud < $DIRPATH/templates/${template}))
   success_file=$(mktemp -u)
 
   buf="$(get_sub_zones)"
@@ -61,7 +90,8 @@ create_vm () {
   while [ ! -e $success_file ]; do
     echo "$buf" |
     while read zone; do
-      jq --slurpfile vm <(jq '.work = "'"$work"'" | .zone = "'$zone'"' $DIRPATH/templates/${template}) '.vms["'$name'"] = $vm[0]' $tfvar > $tfvar_tmp
+      jq --slurpfile vm <(jq '.zone = "'$zone'"' $DIRPATH/templates/${template}) '.'vms'["'$name'"] = $vm[0]' $tfvar > $tfvar_tmp
+      # exit 1
       if apply_changes; then
         echo yep >> $success_file
         return 0
@@ -88,11 +118,6 @@ delete_vm () {
   apply_changes
 }
 
-get_ip_from_name() {
-  jq -r '.resources[].instances[] | if .schema_version == 6 then select(.index_key == "'$name'") else empty end | .attributes.network_interface[0].access_config[0].nat_ip' < $DIRPATH/terraform.tfstate
-
-}
-
 get_zone_from_name() {
   jq -r '.vms."'$name'".zone' < $DIRPATH/terraform.tfvars.json
 }
@@ -107,14 +132,4 @@ check_responding() {
   name=$name
   sssh true
 EOF
-}
-
-
-list_defined() {
-  jq -r '.resources[].instances[] | if .schema_version == 6 then select(.index_key == "'$name'") else empty end | .attributes.network_interface[0].access_config[0].nat_ip' < $DIRPATH/terraform.tfstate
-}
-
-
-list_running() {
-  jq -r '.resources[].instances[] | if .schema_version == 6 then .attributes.name else empty end' < $DIRPATH/terraform.tfstate
 }

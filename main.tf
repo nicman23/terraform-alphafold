@@ -4,93 +4,57 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
   }
 }
 
-variable project_id {
-  default = "nop"
-}
-
-variable project_key {
-  default = "nop"
-}
-
-provider "google" {
-  project = var.project_id
-  credentials = file(var.project_key)
-}
 
 # Define a map variable for VM instance configurations
 variable "vms" {
   description = "A map of VM instance configurations to create."
   type = map(object({
-    machine_type       = string
-    spot_vm            = optional(bool, false)
-    work               = optional(string, "true")
-    zone               = optional(string, "europe-north1-a")
-    auto_delete        = optional(bool, false)
-    boot_image         = optional(string, "rocky-linux-accelerator-cloud/rocky-linux-9-optimized-gcp-nvidia-latest")
-    boot_image_size    = optional(number, 50)
-    accelerator        = optional(object({
-      type  = string
-      count = number
-    }))
+      machine_type       = string
+      cloud              = string
+      spot_vm            = optional(bool, false)
+      zone               = optional(string, "europe-north1-a")
+      region             = optional(string, "europe-north1-a")
+      auto_delete        = optional(bool, false)
+      boot_image         = optional(string, "rocky-linux-accelerator-cloud/rocky-linux-9-optimized-gcp-nvidia-latest")
+      boot_image_size    = optional(number, 50)
+      accelerator        = optional(object({
+        type  = string
+        count = number
+      }))
   }))
-  default = {
-    "vm-01" = {
-      machine_type = "e2-medium"
-      spot_vm      = true
-      zone         = "us-central1-a"
-      work = "apt update && apt install -y htop"
-    },
-    "vm-02" = {
-      machine_type = "n1-standard-4"
-      accelerator = {
-        type  = "nvidia-tesla-t4"
-        count = 1
-      }
-    }
-  }
 }
 
-# Define a variable for the custom message
-variable "welcome_message" {
-  description = "The welcome message to display in the VM startup script."
-  type        = string
-  default     = "Hello from Terraform!"
+variable "startup_script_file" {
+  description = "Path to the startup script to be passed as user_data to AWS instances"
+  default     = "./bootstrap.sh"
 }
 
-# # Add a resource to request an increase to the GPU quota
-# resource "google_cloud_quotas_quota_preference" "gpu_quota_request" {
-#   # The parent for this resource is the project
-#   parent = "projects/optical-precept-472510-p2"
+variable gcloud_project_id {
+  default = "nop"
+}
 
-#   # The service for the GPU quota
-#   service = "compute.googleapis.com"
+variable gcloud_project_key {
+  default = "nop"
+}
 
-#   # The specific quota ID for all-region GPUs
-#   quota_id = "GPUS-ALL-REGIONS-per-project"
+provider "google" {
+  project = var.gcloud_project_id
+  credentials = file(var.gcloud_project_key)
+}
 
-#   # The preferred value for the quota. A value of 1 is requested here.
-#   quota_config {
-#     preferred_value = 2
-#   }
-
-#   # A justification for the quota request
-#   justification = "Required for a personal machine learning project."
-
-#   # An optional contact email for communication about the request
-#   contact_email = "your-email@example.com"
-# }
-
-# Create multiple VM instances
 resource "google_compute_instance" "default" {
 
+  for_each = { for k, v in var.vms : k => v if v.cloud == "gcloud" }
 
-  for_each     = var.vms
   name         = each.key
   machine_type = each.value.machine_type
-
   zone = try(each.value.zone, null)
 
   # Define the boot disk
@@ -147,43 +111,8 @@ resource "google_compute_instance" "default" {
   }
 
   # Use a startup script to run a simple bash command
-  metadata_startup_script = <<-EOF
-  #!/bin/bash
-
-
-  while ! ping -c 1 1.1.1.1; do
-    sleep 1
-  done
-
-  mkdir -p /root/.ssh
-  echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDEGnYuS8YZh+eUlHsMdfmzyGCtiz2ZDZhc0TgeHAx8SFAbkB5+jT9JG6a2/ZlrfsNzpTD9n2SF2N+NKmm+TfjQiMIeL39JbDNc+DRGccJsleY5xP3L1CH6yL3/nbw1CBgCcVchWRu8wejUQzesGiH/ZXLIjHqMhjsHQ8OeBo1mnz5i8McqQGuzbyFWVe5Y+KrSXYyAL3bHYCjWRPI18vgIAdAsVl1EX+hebMSvp99ZuspP/j4X7KkRWxVdydMzkRaQsaGEy8jb5u+rBId9iOxx5r5Ts/r9NfhmSD/6Kn26+h+CK1NhZqXb4qj0gfkq4iWMzmTo9oJD1R+b8aoz3/Fr nikos" > /root/.ssh/authorized_keys
-  echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDSHzH2Vn+fS1okGupLvU4kSvzWD03VGr6u7mT2jysI8p6BReeQheMl9FADMSekmVdn/uCb1cyHT9Y3rMa2N9rbsA/blPwAXLot/xj1iYQ+lFDfWvyaNNVxbSmRU3TKxms985Vh4WR8XN0X/olLI/eNdWVkqNUSmADgVCDgIZ5CTDXCT9gqrBfXSjYwK6ifzqWyfUDavbu4er9A5nS5iEmQMwrR7GQFR5Z+RtCpne+bUaZCaJNdFxxaP7OIjffCFlTZgXNvxdqmJc02vmvgZKeaPQuR7fZw0Dl3nVz+6wE3ztd0yFXJtIod4kLwgYkNh8dkQRrnIzkwqdthV5ou5HbyKWfJKTsVRK18I5Aylv7ddLOJSO+T8i4yU3Tjdp/Txh4tZFIFZDeRn0ru8f2DoUMnCRhpngcF6Iipgp/1wCf3ucPko2fRCEun20Yub0g83Q578Iy6f+HB/URE1t3l8twH+Rk2ErO6fcHRzeL2onfiuUjSdtqH49YqvAkTu3azF4E= katsila-lab"  >> /root/.ssh/authorized_keys
-echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBSLeRrR7pw9eZ2tWxx+g2GKCz1WaHv+SA19jV8YPtKZ NAS"  >> /root/.ssh/authorized_keys
-  chmod 700 /root/.ssh
-  chmod 600 /root/.ssh/authorized_keys
-
-  sed -i 's/PermitRootLogin no/PermitRootLogin yes/g' /etc/ssh/sshd_config
-  sed -i -r 's/PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
-  systemctl restart ssh ||
-  systemctl restart sshd # rhel
-  docker ||
-  (
-    dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
-    dnf install -y docker-ce docker-ce-cli containerd.io
-    curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | \
-    tee /etc/yum.repos.d/nvidia-container-toolkit.repo
-    dnf config-manager --enable nvidia-container-toolkit-experimental
-
-    dnf install -y \
-        nvidia-container-toolkit \
-        nvidia-container-toolkit-base \
-        libnvidia-container-tools \
-        libnvidia-container1
-
-    systemctl enable --now docker
-  ) &> /tmp/install
-  ${each.value.work}
-  EOF
+  metadata_startup_script = file(var.startup_script_file)
+ 
 }
 
 # Output the public IP addresses of the VMs
@@ -191,4 +120,171 @@ output "public_ip_addresses" {
   value = [
     for instance in google_compute_instance.default : instance.network_interface[0].access_config[0].nat_ip
   ]
+}
+
+# Configure AWS providers for multiple regions
+provider "aws" {
+  region = "us-east-1"
+}
+
+provider "aws" {
+  alias  = "default"
+  region = "us-east-1"
+}
+
+resource "aws_vpc" "default" {
+  provider             = aws.default
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "permissive-default-vpc"
+  }
+}
+
+resource "aws_subnet" "public" {
+  provider                = aws.default
+  vpc_id                  = aws_vpc.default.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "us-east-1a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "permissive-default-subnet"
+  }
+}
+
+resource "aws_internet_gateway" "gw" {
+  provider = aws.default
+  vpc_id   = aws_vpc.default.id
+
+  tags = {
+    Name = "permissive-default-igw"
+  }
+}
+
+resource "aws_route_table" "public" {
+  provider = aws.default
+  vpc_id   = aws_vpc.default.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw.id
+  }
+
+  tags = {
+    Name = "permissive-default-rt"
+  }
+}
+
+resource "aws_route_table_association" "public_assoc" {
+  provider      = aws.default
+  subnet_id     = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_security_group" "permissive" {
+  provider    = aws.default
+  name        = "permissive-default-sg"
+  description = "Allow all inbound and outbound traffic"
+  vpc_id      = aws_vpc.default.id
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "permissive-default-sg"
+  }
+}
+
+resource "aws_network_acl" "permissive" {
+  provider = aws.default
+  vpc_id   = aws_vpc.default.id
+
+  ingress {
+    protocol   = "-1"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 0
+    to_port    = 0
+  }
+
+  egress {
+    protocol   = "-1"
+    rule_no    = 100
+    action     = "allow"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 0
+    to_port    = 0
+  }
+
+  tags = {
+    Name = "permissive-default-nacl"
+  }
+}
+
+resource "aws_network_acl_association" "public_assoc" {
+  provider     = aws.default
+  subnet_id    = aws_subnet.public.id
+  network_acl_id = aws_network_acl.permissive.id
+}
+
+# Create AWS EC2 instances for vms that target AWS
+resource "aws_instance" "default" {
+  for_each = { for k, v in var.vms : k => v if v.cloud == "aws" }
+
+  # provider    = local.aws_providers[each.value.region]
+  ami           = each.value.boot_image
+  instance_type = each.value.machine_type
+  availability_zone = each.value.zone
+  associate_public_ip_address = true
+
+  root_block_device {
+    volume_size           = each.value.boot_image_size
+    delete_on_termination = each.value.auto_delete
+  }
+
+  # Spot instances on AWS are configured via instance_market_options.
+  # Vendor difference: AWS uses spot market options instead of GCP scheduling.provisioning_model.
+  dynamic "instance_market_options" {
+    for_each = each.value.spot_vm ? [1] : []
+    content {
+      market_type = "spot"
+      spot_options {
+        # Set interruption behaviour similar to GCP's preemptible/spot semantics.
+        instance_interruption_behavior = "terminate"
+        # Additional spot options (max_price, spot_instance_type) may be added here.
+      }
+    }
+  }
+  # Use a startup script to run a simple bash command
+  user_data = file(var.startup_script_file)
+
+  tags = {
+    Name = each.key
+  }
+
+  # Select AWS availability zone from the VM's zone field (if provided)
+  subnet_id               = aws_subnet.public.id
+  vpc_security_group_ids  = [aws_security_group.permissive.id]
+
+  lifecycle {
+    ignore_changes = [
+      # user_data changes commonly cause a replacement; ignore if you prefer not to trigger replacements.
+      user_data
+    ]
+  }
 }
