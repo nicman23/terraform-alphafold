@@ -6,7 +6,9 @@ DIRPATH="$(dirname $(realpath $0))"
 tfvar=terraform.tfvars.json
 tfvar_tmp=$DIRPATH/tmp_$tfvar
 tfvar=$DIRPATH/$tfvar
-zone=europe
+
+source $DIRPATH/lib_gcloud.sh
+# source $DIRPATH/lib_aws.sh
 
 sssh() {
   ssh -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=15 -l root $(get_ip_from_name) "$@"
@@ -54,7 +56,7 @@ create_vm () {
 
   success_file=$(mktemp -u)
 
-  buf="$(gcloud compute machine-types list --filter=$machine_type | grep $zone | awk '{print $2}' )"
+  buf="$(get_sub_zones)"
 
   while [ ! -e $success_file ]; do
     echo "$buf" |
@@ -105,37 +107,6 @@ check_responding() {
   name=$name
   sssh true
 EOF
-}
-
-reset_vm() {
-  gcloud compute instances reset $name --zone=$zone
-}
-
-check_health() {
-  zone=$(get_zone_from_name)
-  status=$(gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null)
-
-  case "$status" in
-    RUNNING)
-      if check_responding; then
-        echo is running 2> /dev/null
-      else
-        echo is not responding - reseting
-        reset_vm & disown
-      fi
-      return 0
-        ;;
-    TERMINATED)
-      echo was down\; starting 2> /dev/null
-      gcloud compute instances start "$name" --zone="$zone"
-        ;;
-    *)
-      echo invalid state "$status";
-      sleep 10;
-      status=$(gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null)
-        ;;
-  esac
-
 }
 
 
