@@ -2,8 +2,6 @@
 
 source $(dirname $(realpath $0))/lib.sh
 
-template=a100-af
-
 create_and_send () {
   name=''
   success=0
@@ -36,20 +34,20 @@ create_and_send () {
 af_do_work() {
 
   (
-    sssh 'rm -rf af_output af_input workdir work_done'
+    sssh rm -rf $output $input workdir work_done
     cat $1 | sssh 'zstd -d | tar -xf -'
   ) &>> ${name}.sender.log
 
   cat << EOF | sssh cat - \> work.sh
   ln -fs /root/mlibs /root/public_databases
-  rm -rf af_output workdir
-  mkdir af_output workdir
-  cd af_input
+  rm -rf $output workdir
+  mkdir $output workdir
+  cd $input
   rm /root/work_done /root/final_done
   for i in *json; do
     mkdir -p /root/workdir/\$i
-    cp /root/af_input/\$i /root/workdir/\$i/
-    [ -e /root/af_output/\$i ] && continue
+    cp /root/$input/\$i /root/workdir/\$i/
+    [ -e /root/$output/\$i ] && continue
     mkdir -p /root/workdir/\$i/msa_outputs
     docker kill main
     docker rm main
@@ -60,13 +58,13 @@ af_do_work() {
       python run_alphafold.py \
       --run_inference=True \
       --run_data_pipeline=False \
-      --json_path=/root/af_input/\$i \
+      --json_path=/root/$input/\$i \
       --model_dir=/root/models \
       --output_dir=/root/workdir/\$i
     docker wait main
     docker logs main > /root/workdir/\$i/log
     docker rm main
-    mv /root/workdir/\$i /root/af_output/
+    mv /root/workdir/\$i /root/$output/
     echo \$i >> /root/work_done
 
   done
@@ -82,7 +80,7 @@ EOF
      fetcher
     fi
   done
-  touch af_output/final_done
+  touch $output/final_done
 )  &>> ${name}.fetch.log &
 
   while ! sssh cat final_done; do
@@ -90,15 +88,15 @@ EOF
      check_health
   done
   fetcher
-  touch af_output/final_done
+  touch $output/final_done
 }
 
 fetcher() {
   buf="$(sssh cat work_done)"
   for l in $buf; do
-    mkdir -p af_output/workdir/$l
-    srsync /root/af_output/$l af_output/workdir/$l
-    mv af_output/workdir/$l af_output/$l
+    mkdir -p workdir/$l
+    srsync /root/$output/$l workdir/$l
+    mv workdir/$l $output/$l
   done
   sssh rm work_done
 }
@@ -106,13 +104,13 @@ fetcher() {
 get_msa_too() {
   (
   while read l ; do
-    echo $l;  jq < $l | grep Path\": | rev | cut -f2 -d\" | rev | sed 's~^~./af_input/~g';
+    echo $l;  jq < $l | grep Path\": | rev | cut -f2 -d\" | rev | sed "s~^~./$input/~g";
   done 2>/dev/null
   )
 }
 
 cleanup() {
-  rm -rf ${tmpfiles[@]} af_output/workdir/
+  rm -rf ${tmpfiles[@]} workdir/
   for i in ${created_vms[@]}; do
     delete-vm $i
   done
@@ -121,8 +119,6 @@ cleanup() {
 }
 
 fancy() {
-  input=af_input
-  output=af_output
   total=$(ls $input | wc -l)
 
   (
@@ -145,23 +141,25 @@ if [ -z "$STY" ]; then
   # exit
 fi
 
-###no service account
 
-if ! ls af_input/*json &>/dev/null; then
-echo af_input empty
+input=af_input
+output=af_output
+template=a100-af
+
+if ! ls $input/*json &>/dev/null; then
+  echo $input empty
 exit 2
 fi
-mkdir -p af_output
+mkdir -p $output
 
-already_done=( $(cd af_output ; ls | sed 's~^~af_input/~g') )
-files=( $(find af_input -name \*json | while read l; do [[  "${already_done[@]}" =~ "$l"  ]] || echo $l; done) ) > /dev/null
+already_done=( $(cd $output ; ls | sed "s~^~$input/~g") )
+files=( $(find $input -name \*json | while read l; do [[  "${already_done[@]}" =~ "$l"  ]] || echo $l; done) ) > /dev/null
 files_m=$(( ${#files[@]} -1 ))
 max_vms=4
 #max_vms=$((max_vms -1 ))
 step=$(( files_m / max_vms ))
 files_i=0
 
-#tmpfiles=( $PWD/af_output/workdir/ )
 created_vms=()
 tmpfiles=()
 
@@ -181,10 +179,10 @@ while [ $files_m -ge $files_i ] ; do
   files_i=$(( files_i + step + 1 ))
 
   tar -cf - -T $t_d/part.txt |
-  zstd -1 > $t_d/af_input.tar.zst
+  zstd -1 > $t_d/$input.tar.zst
   rm $t_d/part.txt
 
-  create_and_send $PWD/$t_d/af_input.tar.zst
+  create_and_send $PWD/$t_d/$input.tar.zst
 done
 
 fancy
