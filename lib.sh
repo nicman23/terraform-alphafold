@@ -9,14 +9,15 @@ tfvar=$DIRPATH/$tfvar
 clouds=( $(cat $DIRPATH/.avail.clouds) )
 cloud_functions=(get_sub_zones get_ip_from_name get_zone_from_name reset_vm check_health list_defined list_running)
 #fucking disgusting
-for cloud in ${clouds[@]}; do
-  source $DIRPATH/lib_$cloud.sh
+for t_cloud in ${clouds[@]}; do
+  source $DIRPATH/lib_${t_cloud}.sh
 done
+cloud=''
 
 source <(
 	for function_cloud in ${cloud_functions[@]}; do
 	  echo ${function_cloud}'() {'
-    echo 'if [ -z "$cloud" ]; then for cloud in ${clouds[*]}; do'
+    echo 'if [ -z "$cloud" ]; then for cloud in ${clouds[@]}; do'
 	  echo \ \ ${function_cloud}_\${cloud} '"$@"'
 	  echo 'done; else'
 	  echo  ${function_cloud}_\${cloud} '"$@"'
@@ -116,6 +117,7 @@ get_zone_from_name() {
 }
 
 check_responding() {
+  for try in {1..10}; do
   cat << EOF | timeout 10 bash -
   $(type get_ip_from_name | sed 1d)
 
@@ -125,4 +127,9 @@ check_responding() {
   name=$name
   sssh true
 EOF
+  [ $? -gt 0 ] && continue
+  return 0
+
+done
+return 1
 }

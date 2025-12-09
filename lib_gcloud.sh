@@ -29,6 +29,7 @@ reset_vm_gcloud() {
 }
 
 check_health_gcloud() {
+  cloud=gcloud
   zone=$(get_zone_from_name)
   status=$(gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null)
 

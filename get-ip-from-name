@@ -4,7 +4,7 @@ source $(dirname $(realpath $0))/lib.sh
 name=$1
 
 if [ -z "$name" ];then
-    for name in $(eval echo $(list_running)); do
+    for name in $(list_running); do
       echo -n $name :\ \ \ 
       get_ip_from_name $name
     done

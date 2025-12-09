@@ -1,6 +1,8 @@
 #!/bin/bash
 
 source $(dirname $(realpath $0))/lib.sh
+cloud=gcloud
+template=a100-af
 
 create_and_send () {
   name=''
