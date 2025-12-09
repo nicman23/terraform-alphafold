@@ -24,6 +24,7 @@ create_and_send () {
     echo found avail vm $name
     sssh rm final_done
   fi
+  created_vms+=($name)
 
 (
   af_do_work $1
@@ -115,6 +116,10 @@ get_msa_too() {
 cleanup() {
   rm -rf ${tmpfiles[@]} af_output/workdir/
 
+  for i in ${created_vms[@]}; do
+    delete-vm $i
+  done
+
   kill $(jobs -p)
 }
 
@@ -166,6 +171,8 @@ step=$(( files_m / max_vms ))
 files_i=0
 
 #tmpfiles=( $PWD/af_output/workdir/ )
+
+created_vms=()
 tmpfiles=()
 
 trap cleanup EXIT
@@ -191,3 +198,7 @@ while [ $files_m -ge $files_i ] ; do
 done
 
 fancy
+
+wait
+
+
