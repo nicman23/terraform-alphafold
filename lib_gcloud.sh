@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 zone=europe
 # export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json \
@@ -20,6 +20,7 @@ get_ip_from_name_gcloud() {
 }
 
 get_zone_from_name_gcloud() {
+  set -x
   jq -r '.vms."'$name'".zone' < $DIRPATH/terraform.tfvars.json
 }
 

@@ -48,8 +48,9 @@ af_do_work() {
   rm /root/work_done /root/final_done
   for i in *json; do
     mkdir -p /root/workdir/\$i
+    cp /root/af_input/\$i /root/workdir/\$i/
     [ -e /root/af_output/\$i ] && continue
-    mkdir -p /root/workdir/\$i/msa_outputs /root/af_input/\$i/msa_outputs
+    mkdir -p /root/workdir/\$i/msa_outputs
     docker kill main
     docker rm main
     docker run --name main -d  \
@@ -65,7 +66,7 @@ af_do_work() {
     docker wait main
     docker logs main > /root/workdir/\$i/log
     docker rm main
-    mv /root/workdir/\$i /root/af_output/\$i
+    mv /root/workdir/\$i /root/af_output/
     echo \$i >> /root/work_done
 
   done
@@ -76,24 +77,23 @@ EOF
 (
   sleep 1m
   while ! sssh cat final_done; do
-    sleep 20
+    sleep 10m
     if sssh cat work_done; then
-#      sssh tar cf - af_output \| zstd -3 | unzstd | tar -xf -
      fetcher
     fi
   done
+  touch af_output/final_done
 )  &>> ${name}.fetch.log &
 
   while ! sssh cat final_done; do
     sssh 'bash work.sh' &>> ${name}.work.log ||
      check_health
   done
-  sssh tar cf - af_output \| zstd -3 | unzstd | tar -xf -
+  fetcher
   touch af_output/final_done
 }
 
 fetcher() {
-  set -x
   buf="$(sssh cat work_done)"
   for l in $buf; do
     mkdir -p af_output/workdir/$l
@@ -101,12 +101,10 @@ fetcher() {
     mv af_output/workdir/$l af_output/$l
   done
   sssh rm work_done
-  set +x
 }
 
 get_msa_too() {
   (
-  set +e
   while read l ; do
     echo $l;  jq < $l | grep Path\": | rev | cut -f2 -d\" | rev | sed 's~^~./af_input/~g';
   done 2>/dev/null
@@ -115,7 +113,6 @@ get_msa_too() {
 
 cleanup() {
   rm -rf ${tmpfiles[@]} af_output/workdir/
-
   for i in ${created_vms[@]}; do
     delete-vm $i
   done
@@ -145,22 +142,16 @@ fancy() {
 
 if [ -z "$STY" ]; then
   echo must be run from a \(GNU\) screen
-  exit
+  # exit
 fi
 
 ###no service account
-#bash /home/gcloudPuppet/terraform-alphafold/auth.sh
-# while true; do sleep 12h;
-#   bash /home/gcloudPuppet/terraform-alphafold/auth.sh
-# done &
 
 if ! ls af_input/*json &>/dev/null; then
 echo af_input empty
 exit 2
 fi
 mkdir -p af_output
-
-#pubkey=$(cat $(ls ~/.ssh/*pub | head -n1) )
 
 already_done=( $(cd af_output ; ls | sed 's~^~af_input/~g') )
 files=( $(find af_input -name \*json | while read l; do [[  "${already_done[@]}" =~ "$l"  ]] || echo $l; done) ) > /dev/null
@@ -171,7 +162,6 @@ step=$(( files_m / max_vms ))
 files_i=0
 
 #tmpfiles=( $PWD/af_output/workdir/ )
-
 created_vms=()
 tmpfiles=()
 
@@ -200,5 +190,3 @@ done
 fancy
 
 wait
-
-

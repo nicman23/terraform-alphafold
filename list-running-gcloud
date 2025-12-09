@@ -2,8 +2,4 @@
 source $(dirname $(realpath $0))/lib.sh
 
 refresh_state &> /dev/null
-
-
-for cloud in gcloud aws; do
-  list_running
-done
+list_running

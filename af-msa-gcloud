@@ -24,6 +24,7 @@ create_and_send () {
     echo found avail vm $name
     sssh rm final_done
   fi
+  created_vms+=($name)
 
 (
   af_do_work $1
@@ -35,19 +36,21 @@ create_and_send () {
 af_do_work() {
 
   (
+    sssh 'rm -rf af_output af_input workdir work_done'
     cat $1 | sssh 'zstd -d | tar -xf -'
   ) &>> ${name}.sender.log
 
   cat << EOF | sssh cat - \> work.sh
   ln -fs /root/mlibs /root/public_databases
+  rm -rf af_output workdir
   mkdir af_output workdir
   cd af_input
   rm /root/work_done /root/final_done
   for i in *json; do
     mkdir -p /root/workdir/\$i
-    mv /root/af_input/\$i /root/workdir/\$i/
+    cp /root/af_input/\$i /root/workdir/\$i/
     [ -e /root/af_output/\$i ] && continue
-    mkdir -p /root/workdir/\$i/msa_outputs /root/af_input/\$i/msa_outputs
+    mkdir -p /root/workdir/\$i/msa_outputs
     docker kill main
     docker rm main
     docker run --name main -d  \
@@ -56,7 +59,7 @@ af_do_work() {
       python run_alphafold.py \
       --run_inference=False \
       --run_data_pipeline=True \
-      --json_path=/root/workdir/\$i/\$i \
+      --json_path=/root/af_input/\$i \
       --model_dir=/root/models \
       --output_dir=/root/workdir/\$i
     docker wait main
@@ -92,16 +95,15 @@ EOF
 fetcher() {
   buf="$(sssh cat work_done)"
   for l in $buf; do
-    mkdir -p af_output/workdir/
+    mkdir -p af_output/workdir/$l
     srsync /root/af_output/$l af_output/workdir/$l
-    mv af_output/$l af_output/$l
+    mv af_output/workdir/$l af_output/$l
   done
   sssh rm work_done
 }
 
 get_msa_too() {
   (
-#  set +e
   while read l ; do
     echo $l;  jq < $l | grep Path\": | rev | cut -f2 -d\" | rev | sed 's~^~./af_input/~g';
   done 2>/dev/null
@@ -110,6 +112,9 @@ get_msa_too() {
 
 cleanup() {
   rm -rf ${tmpfiles[@]} af_output/workdir/
+  for i in ${created_vms[@]}; do
+    delete-vm $i
+  done
 
   kill $(jobs -p)
 }
@@ -136,14 +141,10 @@ fancy() {
 
 if [ -z "$STY" ]; then
   echo must be run from a \(GNU\) screen
-  exit
+  # exit
 fi
 
 ###no service account
-#bash /home/gcloudPuppet/terraform-alphafold/auth.sh
-while true; do sleep 12h;
-  bash /home/gcloudPuppet/terraform-alphafold/auth.sh
-done &
 
 if ! ls af_input/*json &>/dev/null; then
   echo af_input empty
@@ -160,6 +161,7 @@ step=$(( files_m / max_vms ))
 files_i=0
 
 #tmpfiles=( $PWD/af_output/workdir/ )
+created_vms=()
 tmpfiles=()
 
 trap cleanup EXIT
@@ -185,3 +187,5 @@ while [ $files_m -ge $files_i ] ; do
 done
 
 fancy
+
+wait

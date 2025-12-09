@@ -6,25 +6,23 @@ tfvar=terraform.tfvars.json
 tfvar_tmp=$DIRPATH/tmp_$tfvar
 tfvar=$DIRPATH/$tfvar
 
-source $DIRPATH/lib_gcloud.sh
-#source $DIRPATH/lib_aws.sh
-
-clouds=( gcloud aws )
-clouds=( $(cat .avail.clouds) )
-
+clouds=( $(cat $DIRPATH/.avail.clouds) )
 cloud_functions=(get_sub_zones get_ip_from_name get_zone_from_name reset_vm check_health list_defined list_running)
-
 #fucking disgusting
-source <(
 for cloud in ${clouds[@]}; do
+  source $DIRPATH/lib_$cloud.sh
+done
+
+source <(
 	for function_cloud in ${cloud_functions[@]}; do
 	  echo ${function_cloud}'() {'
-    echo '[ -z "$cloud" ] && for cloud in ${clouds[*]}; do'
+    echo 'if [ -z "$cloud" ]; then for cloud in ${clouds[*]}; do'
 	  echo \ \ ${function_cloud}_\${cloud} '"$@"'
-	  echo 'done'
+	  echo 'done; else'
+	  echo  ${function_cloud}_\${cloud} '"$@"'
+	  echo 'fi'
 	  echo '}'
 	done
-done
 )
 
 sssh() {
@@ -84,6 +82,7 @@ create_vm () {
   while [ ! -e $success_file ]; do
     echo "$buf" |
     while read zone; do
+    sleep 1
       jq --slurpfile vm <(jq '.zone = "'$zone'"' $DIRPATH/templates/${template}) '.'vms'["'$name'"] = $vm[0]' $tfvar > $tfvar_tmp
       # exit 1
       if apply_changes; then
