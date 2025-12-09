@@ -7,31 +7,25 @@ tfvar_tmp=$DIRPATH/tmp_$tfvar
 tfvar=$DIRPATH/$tfvar
 
 source $DIRPATH/lib_gcloud.sh
-source $DIRPATH/lib_aws.sh
+#source $DIRPATH/lib_aws.sh
 
-get_sub_zones() {
-  get_sub_zones_${cloud} "$@"
-}
-get_ip_from_name() {
-  get_ip_from_name_${cloud} "$@"
-}
-get_zone_from_name() {
-  get_zone_from_name_${cloud} "$@"
-}
-reset_vm() {
-  reset_vm_${cloud} "$@"
-}
-check_health() {
-  check_health_${cloud} "$@"
-}
-list_defined() {
-  list_defined_${cloud} "$@"
-}
-list_running() {
-  list_running_${cloud} "$@"
-}
+clouds=( gcloud aws )
+clouds=( $(cat .avail.clouds) )
 
+cloud_functions=(get_sub_zones get_ip_from_name get_zone_from_name reset_vm check_health list_defined list_running)
 
+#fucking disgusting
+source <(
+for cloud in ${clouds[@]}; do
+	for function_cloud in ${cloud_functions[@]}; do
+	  echo ${function_cloud}'() {'
+    echo '[ -z "$cloud" ] && for cloud in ${clouds[*]}; do'
+	  echo \ \ ${function_cloud}_\${cloud} '"$@"'
+	  echo 'done'
+	  echo '}'
+	done
+done
+)
 
 sssh() {
   ssh -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=15 -l root $(get_ip_from_name) "$@"

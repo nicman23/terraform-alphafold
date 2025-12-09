@@ -4,19 +4,15 @@ source $(dirname $(realpath $0))/lib.sh
 name=$1
 
 if [ -z "$name" ];then
-  for cloud in gcloud aws; do
     for name in $(eval echo $(list_running)); do
       echo -n $name :\ \ \ 
       get_ip_from_name $name
     done
-  done
 else
   refresh_state &> /dev/null
-  for cloud in gcloud aws; do
     ip=$(get_ip_from_name)
     if [ ! -z "$ip" ]; then
       echo $ip
       exit 0
     fi
-  done
 fi
