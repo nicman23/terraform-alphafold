@@ -1,0 +1,175 @@
+#!/bin/bash
+
+source $(dirname $(realpath $0))/lib.sh
+
+create_and_send () {
+  name=''
+  success=0
+  for name in $(eval echo $(list_running)); do
+    if sssh ls /root/final_done; then
+      success=1
+      break
+    fi
+  done
+
+  if [ "$success" -eq 0 ]; then
+  name="vm-$(uuidgen)"
+    create_vm $template echo
+    while ! sssh true; do
+      sleep 2
+    done
+  else
+    echo found avail vm $name
+    sssh rm final_done
+  fi
+  created_vms+=($name)
+
+(
+  af_do_work $1
+
+  delete_vm
+) &
+}
+
+af_do_work() {
+
+  (
+    sssh rm -rf $output $input workdir work_done
+    cat $1 | sssh 'zstd -d | tar -xf -'
+  ) &>> ${name}.sender.log
+
+  cat << EOF | sssh cat - \> work.sh
+  rm -rf $output workdir
+  mkdir $output workdir
+  cd $input
+  rm /root/work_done /root/final_done
+  for i in *yaml; do
+    mkdir -p /root/workdir/\$i
+    cp /root/$input/\$i /root/workdir/\$i/
+    [ -e /root/$output/\$i ] && continue
+    
+    boltz predict ${input}/\$i --out_dir /root/workdir/\$i --use_potentials
+    mv /root/workdir/\$i /root/$output/
+    echo \$i >> /root/work_done
+
+  done
+  touch /root/final_done
+EOF
+
+### fetcher thread ###
+(
+  sleep 1m
+  while ! sssh cat final_done; do
+    sleep 10m
+    if sssh cat work_done; then
+     fetcher
+    fi
+  done
+  touch $output/final_done
+)  &>> ${name}.fetch.log &
+
+  while ! sssh cat final_done; do
+    sssh 'bash work.sh' &>> ${name}.work.log ||
+     check_health
+  done
+  fetcher
+  touch $output/final_done
+}
+
+fetcher() {
+  buf="$(sssh cat work_done)"
+  for l in $buf; do
+    mkdir -p workdir/$l
+    srsync /root/$output/$l workdir/$l
+    mv workdir/$l $output/$l
+  done
+  sssh rm work_done
+}
+
+get_msa_too() {
+  (
+  while read l ; do
+    echo $l;  grep msa $l | cut -f3 -d:
+    done 2>/dev/null
+  )
+}
+
+cleanup() {
+  rm -rf ${tmpfiles[@]} workdir/
+  for i in ${created_vms[@]}; do
+    delete-vm $i
+  done
+
+  kill $(jobs -p)
+}
+
+fancy() {
+  total=$(ls $input | wc -l)
+
+  (
+  cur=0
+  prev=0
+
+  while [ $total -gt $cur ]; do
+    cur=$(ls $output | wc -l)
+    diff=$((cur - prev))
+    seq 0 $diff | sed 1d
+    prev=$cur
+    sleep 1
+  done
+  ) |
+  pv -l -s $total > /dev/null
+}
+
+if [ -z "$STY" ]; then
+  echo must be run from a \(GNU\) screen
+  # exit
+fi
+
+
+input=$1
+output=boltz_outputs_${input}
+template=boltz-aws-L40S
+
+if ! ls $input/*json &>/dev/null; then
+  echo $input empty
+exit 2
+fi
+mkdir -p $output
+
+already_done=( $(cd $output ; ls | sed "s~^~$input/~g") )
+files=( $(find $input -name \*json | while read l; do [[  "${already_done[@]}" =~ "$l"  ]] || echo $l; done) ) > /dev/null
+files_m=$(( ${#files[@]} -1 ))
+max_vms=4
+#max_vms=$((max_vms -1 ))
+step=$(( files_m / max_vms ))
+files_i=0
+
+created_vms=()
+tmpfiles=()
+
+trap cleanup EXIT
+trap cleanup ERR
+
+echo refreshing state please wait
+refresh_state
+
+while [ $files_m -ge $files_i ] ; do
+  t_d=$(mktemp -dp .)
+  tmpfiles+=($PWD/$t_d/)
+
+  for i in `seq $files_i $(( step + files_i ))`; do
+    echo ${files[$i]}
+  done | get_msa_too > $t_d/part.txt
+  files_i=$(( files_i + step + 1 ))
+
+  tar -cf - -T $t_d/part.txt |
+  zstd -1 > $t_d/$input.tar.zst
+  rm $t_d/part.txt
+
+  create_and_send $PWD/$t_d/$input.tar.zst
+done
+
+fancy
+
+wait
