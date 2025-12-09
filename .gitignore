@@ -7,3 +7,5 @@ terraform.tfstate.backup
 terraform.tfvars.json
 tmp_terraform.tfvars.json
 templates/
+.zone*
+aws/
