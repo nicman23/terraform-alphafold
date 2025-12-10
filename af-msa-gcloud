@@ -110,11 +110,17 @@ get_msa_too() {
 
 cleanup() {
   rm -rf ${tmpfiles[@]} workdir/
+
+  kill -9 $(jobs -p)
+  sleep 1
+  kill -9 $(jobs -p)
+  sleep 1
+  kill -9 $(jobs -p)
+  kill -9 $(jobs -p)
+
   for i in ${created_vms[@]}; do
     delete-vm $i
   done
-
-  kill $(jobs -p)
 }
 
 fancy() {
