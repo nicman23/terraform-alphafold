@@ -113,11 +113,18 @@ get_msa_too() {
 
 cleanup() {
   rm -rf ${tmpfiles[@]} workdir/
+
+  kill -9 $(jobs -p)
+  sleep 1
+  kill -9 $(jobs -p)
+  sleep 1
+  kill -9 $(jobs -p)
+  kill -9 $(jobs -p)
+
   for i in ${created_vms[@]}; do
     delete-vm $i
   done
 
-  kill $(jobs -p)
 }
 
 fancy() {
@@ -157,8 +164,8 @@ mkdir -p $output
 already_done=( $(cd $output ; ls | sed "s~^~$input/~g") )
 files=( $(find $input -name \*json | while read l; do [[  "${already_done[@]}" =~ "$l"  ]] || echo $l; done) ) > /dev/null
 files_m=$(( ${#files[@]} -1 ))
-max_vms=4
-#max_vms=$((max_vms -1 ))
+max_vms=8
+max_vms=$((max_vms -1 ))
 step=$(( files_m / max_vms ))
 files_i=0
 

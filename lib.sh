@@ -7,12 +7,11 @@ tfvar_tmp=$DIRPATH/tmp_$tfvar
 tfvar=$DIRPATH/$tfvar
 
 clouds=( $(cat $DIRPATH/.avail.clouds) )
-cloud_functions=(get_sub_zones get_ip_from_name get_zone_from_name reset_vm check_health list_defined list_running)
+cloud_functions=(get_sub_zones get_ip_from_name get_zone_from_name reset_vm check_health list_defined list_running power_vm )
 #fucking disgusting
 for t_cloud in ${clouds[@]}; do
   source $DIRPATH/lib_${t_cloud}.sh
 done
-cloud=''
 
 source <(
 	for function_cloud in ${cloud_functions[@]}; do
@@ -116,20 +115,26 @@ get_zone_from_name() {
   jq -r '.vms."'$name'".zone' < $DIRPATH/terraform.tfvars.json
 }
 
+# advanced bash regardation
 check_responding() {
-  for try in {1..10}; do
-  cat << EOF | timeout 10 bash -
-  $(type get_ip_from_name | sed 1d)
+  for try in {1..3}; do
+    if ping -qc $(( 1 + ((try -1)*10) )) $(get_ip_from_name) &>/dev/null; then
+      (
+        cat << EOF
+        $(type get_ip_from_name_${cloud} | sed 1d)
+        $(type get_ip_from_name | sed 1d)
+        $(type sssh | sed 1d)
 
-  $(type sssh | sed 1d)
+        DIRPATH=$DIRPATH
+        name=$name
+        cloud=$cloud
 
-  DIRPATH=$DIRPATH
-  name=$name
-  sssh true
+        sssh true
 EOF
-  [ $? -gt 0 ] && continue
-  return 0
-
-done
+      ) | timeout 10 bash - && {
+        return 0
+      }
+    fi
+  done
 return 1
 }

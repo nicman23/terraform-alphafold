@@ -11,3 +11,5 @@ if [ -z "$name" ];then
 else
   check_health
 fi
+
+wait

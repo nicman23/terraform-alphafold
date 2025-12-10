@@ -20,16 +20,21 @@ get_ip_from_name_gcloud() {
 }
 
 get_zone_from_name_gcloud() {
-  set -x
   jq -r '.vms."'$name'".zone' < $DIRPATH/terraform.tfvars.json
 }
 
 reset_vm_gcloud() {
-  gcloud compute instances reset $name --zone=$zone
+  gcloud compute instances reset $name --zone=$zone > reset.try
+}
+
+power_vm_gcloud() {
+  gcloud compute instances start $name --zone=$zone > reset.try
 }
 
 check_health_gcloud() {
-  cloud=gcloud
+  refresh_state
+
+  local   cloud=gcloud
   zone=$(get_zone_from_name)
   status=$(gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null)
 
@@ -45,7 +50,7 @@ check_health_gcloud() {
         ;;
     TERMINATED)
       echo was down\; starting 2> /dev/null
-      gcloud compute instances start "$name" --zone="$zone"
+      power_vm & disown
         ;;
     *)
       echo invalid state "$status";
@@ -53,7 +58,6 @@ check_health_gcloud() {
       status=$(gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null)
         ;;
   esac
-
 }
 
 
