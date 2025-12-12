@@ -1,8 +1,6 @@
 #!/bin/bash
 
 source $(dirname $(realpath $0))/lib.sh
-cloud=gcloud
-template=a100-af
 
 in_array() {
   el=$1
@@ -104,7 +102,6 @@ af_do_work() {
     done
     touch $output/final_done
   )  &>> ${name}.fetch.log &
-#  echo $$ > ${name}.do_work.pids
 
   while ! sssh cat final_done; do
     if ! sssh 'bash work.sh' &>> ${name}.work.log ; then
@@ -152,22 +149,18 @@ sleep 1m
   for i in ${created_vms[@]}; do
     delete-vm $i
   done
-
 }
 
 fancy() {
   total=$(ls $input | wc -l)
-  start_with=$(ls $output | wc -l)
 
   (
   cur=0
   prev=0
 
   while [ $total -gt $cur ]; do
-#echo not done $total $cur
     cur=$(ls $output | wc -l)
     diff=$((cur - prev))
-#   seq $start_with  $diff | sed 1d
     seq 0 $diff | sed 1d
     prev=$cur
     sleep 1
@@ -185,6 +178,8 @@ fi
 input=af_input
 output=af_output
 template=a100-af
+cloud=gcloud
+
 
 if ! ls $input/*json &>/dev/null; then
   echo $input empty
@@ -202,7 +197,6 @@ get_files() {
 files=( $(get_files) )
 files_m=$(( ${#files[@]} -1 ))
 max_vms=8
-#max_vms=1
 step=$(( files_m / max_vms ))
 files_i=0
 name_prefix=$(basename $(realpath .) |  tr '[:upper:]' '[:lower:]')
