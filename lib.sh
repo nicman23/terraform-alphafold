@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 
 export PATH="$(dirname $(realpath $0))/google-cloud-sdk/bin:$PATH"
 DIRPATH="$(dirname $(realpath $0))"
@@ -26,10 +26,11 @@ source <(
 )
 
 sssh() {
-  ssh -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=15 -l root $(get_ip_from_name) "$@"
+  ssh -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=15 -l root $(get_ip_from_name) "$@" 2>/dev/null
 }
 
 srsync() {
+  echo getting file $1 from $name
   rsync -r -e 'ssh -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 -l root' $(get_ip_from_name):"$1" "$2"
 }
 
@@ -37,7 +38,7 @@ apply_changes() {
   (
   cd $DIRPATH
 
-  if terraform apply -var-file=$tfvar_tmp <<< yes ; then
+  if terraform apply -var-file=$tfvar_tmp <<< yes >> terraform.log; then
     cp $tfvar_tmp $tfvar
     rm $tfvar_tmp
     return 0
@@ -49,7 +50,7 @@ apply_changes() {
 refresh_state() {
   (
   cd $DIRPATH
-  terraform refresh
+  terraform refresh &>/dev/null
   )
 }
 

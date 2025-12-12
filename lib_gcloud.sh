@@ -24,39 +24,44 @@ get_zone_from_name_gcloud() {
 }
 
 reset_vm_gcloud() {
-  gcloud compute instances reset $name --zone=$zone > reset.try
+  gcloud compute instances reset $name --zone=$zone #> reset.try
 }
 
 power_vm_gcloud() {
-  gcloud compute instances start $name --zone=$zone > reset.try
+  gcloud compute instances start $name --zone=$zone #> reset.try
+}
+
+get_status() {
+  gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null
 }
 
 check_health_gcloud() {
-  refresh_state
+#  refresh_state
 
-  local   cloud=gcloud
+  local cloud=gcloud
   zone=$(get_zone_from_name)
-  status=$(gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null)
 
-  case "$status" in
+  case "$(get_status)" in
     RUNNING)
       if check_responding; then
         echo is running 2> /dev/null
+        return 0
       else
-        echo is not responding - reseting
-        reset_vm & disown
+        echo is not responding 2> /dev/null
+        return 2
       fi
-      return 0
         ;;
     TERMINATED)
-      echo was down\; starting 2> /dev/null
-      power_vm & disown
+      echo is down 2> /dev/null
+        return 1
+        break;;
+    STAGING)
+      echo is starting
+      return 0
         ;;
     *)
       echo invalid state "$status";
-      sleep 10;
-      status=$(gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null)
-        ;;
+      return 2;;
   esac
 }
 
