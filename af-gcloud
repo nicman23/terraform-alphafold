@@ -188,7 +188,7 @@ fi
 mkdir -p $output
 
 get_files() {
-  ls af_input af_output | grep -v msa_output | sort | uniq -u |
+  ls af_input af_output | grep -v msa_output | grep json | sort | uniq -u |
     while read l; do
       [ -e af_input/$l ] && echo af_input/$l
     done
