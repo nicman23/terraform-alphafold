@@ -1,5 +1,4 @@
 #!/bin/bash
-
 source $(dirname $(realpath $0))/lib.sh
 
 in_array() {
@@ -52,7 +51,6 @@ create_and_send () {
 }
 
 send_work() {
-#  set -xe
   sssh rm -rf $output $input workdir work_done final_done &>/dev/null
   pv $work_zstd | sssh 'zstd -d | tar -xf -'
   ls af_output/ |
@@ -170,6 +168,13 @@ fancy() {
 }
 
 main_af() {
+  files=( $(get_files) )
+  files_m=$(( ${#files[@]} -1 ))
+  max_vms=20
+  step=$(( files_m / max_vms ))
+  files_i=0
+  name_prefix=$(basename $(realpath .) |  tr '[:upper:]' '[:lower:]')
+
   while [ $files_m -ge $files_i ] ; do
     t_d=$(mktemp -dp .)
     tmpfiles+=($PWD/$t_d/)

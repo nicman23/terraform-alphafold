@@ -72,12 +72,6 @@ get_files() {
     done
 }
 
-files=( $(get_files) )
-files_m=$(( ${#files[@]} -1 ))
-max_vms=8
-step=$(( files_m / max_vms ))
-files_i=0
-name_prefix=$(basename $(realpath .) |  tr '[:upper:]' '[:lower:]')
 
 created_vms=()
 
