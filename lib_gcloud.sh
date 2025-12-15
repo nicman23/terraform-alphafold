@@ -61,7 +61,7 @@ check_health_gcloud() {
         ;;
     *)
       echo invalid state "$status";
-      return 2;;
+      return 3;;
   esac
 }
 

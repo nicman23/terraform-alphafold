@@ -156,7 +156,7 @@ fancy() {
   cur=0
   prev=0
 
-  while [ $total -gt $cur ]; do
+  while [ $total -ge $cur ]; do
     cur=$(ls $output | wc -l)
     diff=$((cur - prev))
     seq 0 $diff | sed 1d
@@ -170,10 +170,8 @@ fancy() {
 main_af() {
   files=( $(get_files) )
   files_m=$(( ${#files[@]} -1 ))
-  max_vms=20
   step=$(( files_m / max_vms ))
   files_i=0
-  name_prefix=$(basename $(realpath .) |  tr '[:upper:]' '[:lower:]')
 
   while [ $files_m -ge $files_i ] ; do
     t_d=$(mktemp -dp .)
@@ -196,15 +194,13 @@ main_af() {
     sleep 1m
 
     for name in ${created_vms[@]}; do
-      check_health; health=$$
-
-      if [ $health -eq 1 ]; then
-        power_vm
-        sleep 30
-      elif [ $health -eq 2 ]; then
-        reset_vm
-        sleep 30
-      fi
+      check_health; health=$?
+      zone=$(get_zone_from_name)
+      case $health in
+        1) echo powering up; power_vm;;
+        2) echo reseting; reset_vm;
+        3) created_vms=( ${created_vms[@]/$name} )
+      esac
 
     done
   done

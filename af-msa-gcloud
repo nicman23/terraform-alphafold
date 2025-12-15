@@ -1,4 +1,10 @@
 #!/bin/bash
+input=af_input
+output=af_output
+template=msa-af
+cloud=gcloud
+max_vms=1
+name_prefix=$(basename $(realpath .) |  tr '[:upper:]' '[:lower:]')
 
 if [ -z "$STY" ]; then
   echo must be run from a \(GNU\) screen
@@ -51,11 +57,6 @@ send_work() {
   touch /root/final_done
 EOF
 }
-
-input=af_input
-output=af_output
-template=msa-af
-cloud=gcloud
 
 if ! ls $input/*json &>/dev/null; then
   echo $input empty
