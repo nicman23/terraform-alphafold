@@ -198,8 +198,8 @@ main_af() {
       zone=$(get_zone_from_name)
       case $health in
         1) echo powering up; power_vm;;
-        2) echo reseting; reset_vm;
-        3) created_vms=( ${created_vms[@]/$name} )
+        2) echo reseting; reset_vm;;
+        3) created_vms=( ${created_vms[@]/$name} );;
       esac
 
     done
