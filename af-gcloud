@@ -23,6 +23,7 @@ get_additional_files() {
   done 2>/dev/null
   )
 }
+
 send_work() {
   sssh rm -rf $output $input workdir work_done final_done &>/dev/null
   pv $work_zstd | sssh 'zstd -d | tar -xf -'
@@ -35,25 +36,36 @@ send_work() {
   cd $input
   rm /root/work_done /root/final_done
   for i in *json; do
-    mkdir -p /root/workdir/\$i
-    cp /root/$input/\$i /root/workdir/\$i/
-    [ -e /root/$output/\$i ] && continue
-    mkdir -p /root/workdir/\$i/msa_outputs
-    docker kill main
-    docker rm main
-    docker run --name main -d  \
-      --volume /root/:/root/ \
-      --gpus=all \
-      alphafold3 \
-      python run_alphafold.py \
-      --run_inference=True \
-      --run_data_pipeline=False \
-      --json_path=/root/$input/\$i \
-      --model_dir=/root/models \
-      --output_dir=/root/workdir/\$i
-    docker wait main
-    docker logs main > /root/workdir/\$i/log
-    docker rm main
+    try=0
+    success=1
+    while [ \$try -lt 3 ]; do
+      if ls /root/workdir/\$i/*/*cif &>/dev/null; then
+        success=0
+        break
+      fi
+      try=\$((try+1))
+      rm -rf /root/workdir/\$i
+      mkdir -p /root/workdir/\$i
+      cp /root/$input/\$i /root/workdir/\$i/
+      [ -e /root/$output/\$i ] && continue
+#      mkdir -p /root/workdir/\$i/msa_outputs
+      docker kill main
+      docker rm main
+      docker run --name main -d  \
+        --volume /root/:/root/ \
+        --gpus=all \
+        alphafold3 \
+        python run_alphafold.py \
+        --run_inference=True \
+        --run_data_pipeline=False \
+        --json_path=/root/$input/\$i \
+        --model_dir=/root/models \
+        --output_dir=/root/workdir/\$i
+      docker wait main
+      docker logs main >> /root/workdir/\$i/log
+      docker rm main
+    done
+
     mv /root/workdir/\$i /root/$output/
     echo \$i >> /root/work_done
 

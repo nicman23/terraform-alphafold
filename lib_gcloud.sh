@@ -44,23 +44,23 @@ check_health_gcloud() {
   case "$(get_status)" in
     RUNNING)
       if check_responding; then
-        echo is running 2> /dev/null
+#        echo is running 2> /dev/null
         return 0
       else
-        echo is not responding 2> /dev/null
+#        echo is not responding 2> /dev/null
         return 2
       fi
         ;;
     TERMINATED)
-      echo is down 2> /dev/null
+#      echo is down 2> /dev/null
         return 1
         break;;
     STAGING)
-      echo is starting
+#      echo is starting
       return 0
         ;;
     *)
-      echo invalid state "$status";
+#      echo invalid state "$status";
       return 3;;
   esac
 }

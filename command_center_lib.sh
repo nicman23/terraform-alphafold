@@ -45,49 +45,49 @@ create_and_send () {
 
 (
   while ! af_do_work; do sleep 1; done
-
+  fetcher
+  touch $output/final_done
   delete_vm
 ) &
 }
 
-send_work() {
-  sssh rm -rf $output $input workdir work_done final_done &>/dev/null
-  pv $work_zstd | sssh 'zstd -d | tar -xf -'
-  ls af_output/ |
-   sssh 'while read dir; mkdir -p $dir'
-  cat << EOF | sssh cat - \> work.sh
-  ln -fs /root/mlibs /root/public_databases
-  rm -rf $output workdir
-  mkdir $output workdir
-  cd $input
-  rm /root/work_done /root/final_done
-  for i in *json; do
-    mkdir -p /root/workdir/\$i
-    cp /root/$input/\$i /root/workdir/\$i/
-    [ -e /root/$output/\$i ] && continue
-    mkdir -p /root/workdir/\$i/msa_outputs
-    docker kill main
-    docker rm main
-    docker run --name main -d  \
-      --volume /root/:/root/ \
-      --gpus=all \
-      alphafold3 \
-      python run_alphafold.py \
-      --run_inference=True \
-      --run_data_pipeline=False \
-      --json_path=/root/$input/\$i \
-      --model_dir=/root/models \
-      --output_dir=/root/workdir/\$i
-    docker wait main
-    docker logs main > /root/workdir/\$i/log
-    docker rm main
-    mv /root/workdir/\$i /root/$output/
-    echo \$i >> /root/work_done
-
-  done
-  touch /root/final_done
-EOF
-}
+#send_work() {
+#  sssh rm -rf $output $input workdir work_done final_done &>/dev/null
+#  pv $work_zstd | sssh 'zstd -d | tar -xf -'
+#
+#  cat << EOF | sssh cat - \> work.sh
+#  ln -fs /root/mlibs /root/public_databases
+#  rm -rf $output workdir
+#  mkdir $output workdir
+#  cd $input
+#  rm /root/work_done /root/final_done
+#  for i in *json; do
+#    mkdir -p /root/workdir/\$i
+#    cp /root/$input/\$i /root/workdir/\$i/
+#    [ -e /root/$output/\$i ] && continue
+#    mkdir -p /root/workdir/\$i/msa_outputs
+#    docker kill main
+#    docker rm main
+#    docker run --name main -d  \
+#      --volume /root/:/root/ \
+#      --gpus=all \
+#      alphafold3 \
+#      python run_alphafold.py \
+#      --run_inference=True \
+#      --run_data_pipeline=False \
+#      --json_path=/root/$input/\$i \
+#      --model_dir=/root/models \
+#      --output_dir=/root/workdir/\$i
+#    docker wait main
+#    docker logs main > /root/workdir/\$i/log
+#    docker rm main
+#    mv /root/workdir/\$i /root/$output/
+#    echo \$i >> /root/work_done
+#
+#  done
+#  touch /root/final_done
+#EOF
+#}
 
 af_do_work() {
 
@@ -108,8 +108,8 @@ af_do_work() {
     fi
   done
 
-  fetcher
-  touch $output/final_done
+  [ $? -eq 137 ] && exit
+
   return 0
 }
 

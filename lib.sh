@@ -31,7 +31,7 @@ sssh() {
 
 srsync() {
   echo getting file $1 from $name
-  rsync -r -e 'ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=2 -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 -l root' $(get_ip_from_name):"$1" "$2"
+  rsync -r --contimeout=3 --timeout=20 -e 'ssh -o ServerAliveInterval=60 -o ServerAliveCountMax=2 -o LogLevel=ERROR -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o ConnectTimeout=5 -l root' $(get_ip_from_name):"$1" "$2"
 }
 
 apply_changes() {
