@@ -1,10 +1,12 @@
 #!/bin/bash
+
 input=af_input
 output=af_output
 template=msa-af
 cloud=gcloud
-max_vms=1
-name_prefix=$(basename $(realpath .) |  tr '[:upper:]' '[:lower:]')
+max_vms=2
+name_prefix=$template
+
 
 if [ -z "$STY" ]; then
   echo must be run from a \(GNU\) screen
@@ -23,8 +25,9 @@ get_additional_files() {
 send_work() {
   sssh rm -rf $output $input workdir work_done final_done &>/dev/null
   pv $work_zstd | sssh 'zstd -d | tar -xf -'
-  ls af_output/ |
-   sssh 'while read dir; mkdir -p $dir'
+#  ls af_output/ |
+#   sssh 'while read dir; mkdir -p $dir'
+  sssh killall -9 bash
   cat << EOF | sssh cat - \> work.sh
   ln -fs /root/mlibs /root/public_databases
   rm -rf $output workdir
@@ -32,24 +35,34 @@ send_work() {
   cd $input
   rm /root/work_done /root/final_done
   for i in *json; do
+    try=0
+    success=1
+    while [ \$try -lt 3 ]; do
+      if ls /root/workdir/\$i/*/*cif &>/dev/null; then
+        success=0
+        break
+      fi
+      try=\$((try+1))
+      rm -rf /root/workdir/\$i
     mkdir -p /root/workdir/\$i
     cp /root/$input/\$i /root/workdir/\$i/
     [ -e /root/$output/\$i ] && continue
-    mkdir -p /root/workdir/\$i/msa_outputs
-    docker kill main
     docker rm main
-    docker run --name main -d  \
+      docker run --name main \
+        -e PYTHONUNBUFFERED=1 \
       --volume /root/:/root/ \
       alphafold3-msa \
-      python run_alphafold.py \
+      python -u run_alphafold.py \
       --run_inference=False \
       --run_data_pipeline=True \
       --json_path=/root/$input/\$i \
       --model_dir=/root/models \
       --output_dir=/root/workdir/\$i
     docker wait main
-    docker logs main > /root/workdir/\$i/log
+      docker logs main &>> /root/workdir/\$i/log
     docker rm main
+    done
+
     mv /root/workdir/\$i /root/$output/
     echo \$i >> /root/work_done
 
@@ -67,7 +80,7 @@ mkdir -p $output
 get_files() {
   ls $input $output | grep -v msa_output | grep json | sort | uniq -u |
     while read l; do
-      [ -e $input/$l ] && echo $input/$l
+      [ -e "$input/$l" ] && echo $input/$l
     done
 }
 
@@ -86,3 +99,16 @@ main_af &
 fancy
 
 wait
+
+(
+cd af_output
+for i in *; do ( ls $i/*/*cif &>/dev/null) || rm -fr $i ; done 2>/dev/null
+
+)
+
+main_af &
+
+fancy
+
+wait
+

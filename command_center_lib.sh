@@ -15,6 +15,8 @@ in_array() {
 create_and_send () {
   name=''
   success=0
+
+  echo searching for already running instance
   for name in $(list_running | grep $name_prefix); do
     in_array $name ${created_vms[@]} && continue
     if sssh true; then
@@ -27,8 +29,10 @@ create_and_send () {
   done
 
   if [ "$success" -eq 0 ]; then
-  name="$name_prefix-$(uuidgen)"
+    echo did not find a avail instance, creating a new one
+    name="$name_prefix-$(uuidgen)"
     create_vm $template echo
+    echo created $name
     while ! sssh true; do
       sleep 2
     done
@@ -40,54 +44,17 @@ create_and_send () {
   sleep 1m
 
   while ! check_health; do sleep 5; done
-  #do not redo work
+  echo $name is up - sending work
+
   while ! ( send_work ); do true; done #&>> ${name}.sender.log
 
 (
   while ! af_do_work; do sleep 1; done
+
   fetcher
-  touch $output/final_done
   delete_vm
 ) &
 }
-
-#send_work() {
-#  sssh rm -rf $output $input workdir work_done final_done &>/dev/null
-#  pv $work_zstd | sssh 'zstd -d | tar -xf -'
-#
-#  cat << EOF | sssh cat - \> work.sh
-#  ln -fs /root/mlibs /root/public_databases
-#  rm -rf $output workdir
-#  mkdir $output workdir
-#  cd $input
-#  rm /root/work_done /root/final_done
-#  for i in *json; do
-#    mkdir -p /root/workdir/\$i
-#    cp /root/$input/\$i /root/workdir/\$i/
-#    [ -e /root/$output/\$i ] && continue
-#    mkdir -p /root/workdir/\$i/msa_outputs
-#    docker kill main
-#    docker rm main
-#    docker run --name main -d  \
-#      --volume /root/:/root/ \
-#      --gpus=all \
-#      alphafold3 \
-#      python run_alphafold.py \
-#      --run_inference=True \
-#      --run_data_pipeline=False \
-#      --json_path=/root/$input/\$i \
-#      --model_dir=/root/models \
-#      --output_dir=/root/workdir/\$i
-#    docker wait main
-#    docker logs main > /root/workdir/\$i/log
-#    docker rm main
-#    mv /root/workdir/\$i /root/$output/
-#    echo \$i >> /root/work_done
-#
-#  done
-#  touch /root/final_done
-#EOF
-#}
 
 af_do_work() {
 
@@ -101,25 +68,37 @@ af_do_work() {
     touch $output/final_done
   )  &>> ${name}.fetch.log &
 
-  while ! sssh cat final_done; do
-    if ! sssh 'bash work.sh' &>> ${name}.work.log ; then
-      
-      echo __failure__ &>> ${name}.work.log
+  while ! sssh cat final_done &>/dev/null; do
+    if ! sssh 'bash work.sh'; then
+      echo __failure__
     fi
-  done
+  done &>> ${name}.work.log
 
-  [ $? -eq 137 ] && exit
 
+  if [ $? -eq 137 ]; then
+    echo received immidiate exit
+    exit
+  fi
   return 0
 }
 
 fetcher() {
-  buf="$(sssh cat work_done; rm work_done)"
+  buf="$(sssh cat work_done\; rm work_done)"
+  sssh rm work_done
   for l in $buf; do
     mkdir -p workdir/$l
-    srsync /root/$output/$l workdir/
-    rm -rf $output/$l
-    mv workdir/$l $output/
+    if srsync /root/$output/$l workdir/; then
+#      if  [ -e workdir/*/*/*cif ]; then
+        cp -r workdir/$l $output/
+        rm -rf workdir/$l
+#      else
+#        continue
+#      fi
+      sssh "rm -rf /root/$output/$l"
+    else
+      sleep 20
+      srsync /root/$output/$l workdir/
+    fi
   done
 }
 
@@ -134,15 +113,11 @@ get_msa_too() {
 cleanup() {
   echo exiting
   echo deleting tmp
+  kill -9 $(jobs -p)
+  kill -9 $(jobs -p)
+
   rm -rf ${tmpfiles[@]} workdir/
   echo ctrl c to kill now
-sleep 1m
-  kill -9 $(jobs -p)
-  sleep 1
-  kill -9 $(jobs -p)
-  sleep 1
-  kill -9 $(jobs -p)
-  kill -9 $(jobs -p)
 
   for i in ${created_vms[@]}; do
     delete-vm $i
@@ -197,9 +172,9 @@ main_af() {
       check_health; health=$?
       zone=$(get_zone_from_name)
       case $health in
-        1) echo powering up; power_vm;;
-        2) echo reseting; reset_vm;;
-        3) created_vms=( ${created_vms[@]/$name} );;
+        1) power_vm; break;;
+        2) reset_vm; break;;
+        3) created_vms=( ${created_vms[@]/$name} ); break;;
       esac
 
     done

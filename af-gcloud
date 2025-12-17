@@ -5,7 +5,7 @@ output=af_output
 template=a100-af
 cloud=gcloud
 max_vms=8
-name_prefix=$(basename $(realpath .) |  tr '[:upper:]' '[:lower:]')
+name_prefix=$template
 
 
 if [ -z "$STY" ]; then
@@ -14,7 +14,6 @@ if [ -z "$STY" ]; then
 fi
 
 source $(dirname $(realpath $0))/command_center_lib.sh
-
 
 get_additional_files() {
   (
@@ -27,8 +26,9 @@ get_additional_files() {
 send_work() {
   sssh rm -rf $output $input workdir work_done final_done &>/dev/null
   pv $work_zstd | sssh 'zstd -d | tar -xf -'
-  ls af_output/ |
-   sssh 'while read dir; mkdir -p $dir'
+#  ls af_output/ |
+#   sssh 'while read dir; mkdir -p $dir'
+  sssh killall -9 bash
   cat << EOF | sssh cat - \> work.sh
   ln -fs /root/mlibs /root/public_databases
   rm -rf $output workdir
@@ -48,21 +48,20 @@ send_work() {
       mkdir -p /root/workdir/\$i
       cp /root/$input/\$i /root/workdir/\$i/
       [ -e /root/$output/\$i ] && continue
-#      mkdir -p /root/workdir/\$i/msa_outputs
-      docker kill main
       docker rm main
-      docker run --name main -d  \
+      docker run --name main \
+        -e PYTHONUNBUFFERED=1 \
         --volume /root/:/root/ \
         --gpus=all \
         alphafold3 \
-        python run_alphafold.py \
+        python -u run_alphafold.py \
         --run_inference=True \
         --run_data_pipeline=False \
         --json_path=/root/$input/\$i \
         --model_dir=/root/models \
         --output_dir=/root/workdir/\$i
       docker wait main
-      docker logs main >> /root/workdir/\$i/log
+      docker logs main &>> /root/workdir/\$i/log
       docker rm main
     done
 
@@ -83,7 +82,7 @@ mkdir -p $output
 get_files() {
   ls $input $output | grep -v msa_output | grep json | sort | uniq -u |
     while read l; do
-      [ -e $input/$l ] && echo $input/$l
+      [ -e "$input/$l" ] && echo $input/$l
     done
 }
 
@@ -102,3 +101,16 @@ main_af &
 fancy
 
 wait
+
+(
+cd af_output
+for i in *; do ( ls $i/*/*cif &>/dev/null) || rm -fr $i ; done 2>/dev/null
+
+)
+
+main_af &
+
+fancy
+
+wait
+

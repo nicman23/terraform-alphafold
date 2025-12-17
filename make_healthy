@@ -9,7 +9,8 @@ if [ -z "$name" ];then
     check_health; code=$?
     case $code in
       1) echo powering up; power_vm;;
-      2) echo reseting; reset_vm;
+      2) echo reseting; reset_vm;;
+      0) echo ok;;
     esac
   done
 else

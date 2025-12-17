@@ -25,10 +25,12 @@ get_zone_from_name_gcloud() {
 
 reset_vm_gcloud() {
   gcloud compute instances reset $name --zone=$zone #> reset.try
+  refresh_state
 }
 
 power_vm_gcloud() {
   gcloud compute instances start $name --zone=$zone #> reset.try
+  refresh_state
 }
 
 get_status() {
