@@ -16,6 +16,10 @@ create_and_send () {
   name=''
   success=0
 
+
+  trap yeet_the_child EXIT
+  trap yeet_the_child ERR
+
   echo searching for already running instance
   for name in $(list_running | grep $name_prefix); do
     in_array $name ${created_vms[@]} && continue
@@ -124,14 +128,20 @@ cleanup() {
   done
 }
 
+yeet_the_child() {
+  kill -9 $(jobs -p)
+}
+
+
 fancy() {
   total=$(ls $input | wc -l)
 
   (
   cur=0
   prev=0
-
-  while [ $total -ge $cur ]; do
+  timeout=1200 # 20 min
+  while [ $total -ge $cur ] || [ $timeout -gt 0 ]; do
+    timeout=$((timeout - 1))
     cur=$(ls $output | wc -l)
     diff=$((cur - prev))
     seq 0 $diff | sed 1d
@@ -143,6 +153,10 @@ fancy() {
 }
 
 main_af() {
+
+  trap yeet_the_child EXIT
+  trap yeet_the_child ERR
+
   files=( $(get_files) )
   files_m=$(( ${#files[@]} -1 ))
   step=$(( files_m / max_vms ))
