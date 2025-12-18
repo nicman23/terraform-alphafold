@@ -73,7 +73,7 @@ send_work() {
 EOF
 }
 
-if ! ls $input/*json &>/dev/null; then
+if ! ls $input/ | grep -q json &>/dev/null; then
   echo $input empty
 exit 2
 fi

@@ -42,8 +42,10 @@ apply_changes() {
     cp $tfvar_tmp $tfvar
     rm $tfvar_tmp
     return 0
+  else
+    rm $tfvar_tmp
+    return 1
   fi
-  return 1
   )
 }
 
@@ -81,8 +83,7 @@ create_vm () {
   buf="$(get_sub_zones)"
 
   while [ ! -e $success_file ]; do
-    echo "$buf" |
-    while read zone; do
+    for zone in $buf; do
     sleep 1
       jq --slurpfile vm <(jq '.zone = "'$zone'"' $DIRPATH/templates/${template}) '.'vms'["'$name'"] = $vm[0]' $tfvar > $tfvar_tmp
       # exit 1

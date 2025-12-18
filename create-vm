@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 source $(dirname $(realpath $0))/lib.sh
 name=$1
 shift 1
