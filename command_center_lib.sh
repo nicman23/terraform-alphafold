@@ -117,8 +117,8 @@ get_msa_too() {
 cleanup() {
   echo exiting
   echo deleting tmp
-  kill -9 $(jobs -p)
-  kill -9 $(jobs -p)
+  kill -15 $(jobs -p)
+  kill -15 $(jobs -p)
 
   rm -rf ${tmpfiles[@]} workdir/
   echo ctrl c to kill now
@@ -129,7 +129,11 @@ cleanup() {
 }
 
 yeet_the_child() {
-  kill -9 $(jobs -p)
+  kill -15 $(jobs -p)
+  kill -15 $(jobs -p)
+  kill -15 $(jobs -p)
+  kill -15 $(jobs -p)
+  kill -15 $(jobs -p)
 }
 
 
