@@ -4,7 +4,7 @@ input=af_input
 output=af_output
 template=a100-af
 cloud=gcloud
-max_vms=8
+max_vms=20
 name_prefix=$template
 
 

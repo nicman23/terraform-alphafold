@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 source $(dirname $(realpath $0))/lib.sh
 
 in_array() {
@@ -18,7 +18,6 @@ create_and_send () {
 
 
   trap yeet_the_child EXIT
-  trap yeet_the_child ERR
 
   echo searching for already running instance
   for name in $(list_running | grep $name_prefix); do
@@ -49,7 +48,7 @@ create_and_send () {
 
   while ! check_health; do sleep 5; done
   echo $name is up - sending work
-
+  echo $name > created_vms
   while ! ( send_work ); do true; done #&>> ${name}.sender.log
 
 (
@@ -123,7 +122,7 @@ cleanup() {
   rm -rf ${tmpfiles[@]} workdir/
   echo ctrl c to kill now
 
-  for i in ${created_vms[@]}; do
+  for i in $(cat created_vms); do
     delete-vm $i
   done
 }
@@ -153,13 +152,12 @@ fancy() {
     sleep 1
   done
   ) |
-  pv -l -s $total > /dev/null
+  pv --interval 300 --average-rate-window 150 -l -s $total > /dev/null
 }
 
 main_af() {
 
   trap yeet_the_child EXIT
-  trap yeet_the_child ERR
 
   files=( $(get_files) )
   files_m=$(( ${#files[@]} -1 ))
