@@ -146,8 +146,11 @@ fancy() {
 #  set -x
   while [ $cur -lt $total ] && [ $timeout -gt 0 ]; do
 #    echo $total $cur >/dev/stderr
-    [ $prev -eq $cur ] &&
+    if [ $prev -eq $cur ];
       timeout=$((timeout - 1))
+    else
+      timeout=1200
+    fi
     cur=$(ls $output | wc -l)
     diff=$((cur - prev))
     seq 0 $diff | sed 1d
