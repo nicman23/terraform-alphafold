@@ -46,12 +46,13 @@ create_and_send () {
   created_vms+=($name)
   sleep 1m
 
+(
+
   while ! check_health; do sleep 5; done
   echo $name is up - sending work
-  echo $name > created_vms
+  echo $name >> created_vms
   while ! ( send_work ); do true; done #&>> ${name}.sender.log
 
-(
   while ! af_do_work; do sleep 1; done
 
   fetcher
@@ -146,7 +147,7 @@ fancy() {
 #  set -x
   while [ $cur -lt $total ] && [ $timeout -gt 0 ]; do
 #    echo $total $cur >/dev/stderr
-    if [ $prev -eq $cur ];
+    if [ $prev -eq $cur ]; then
       timeout=$((timeout - 1))
     else
       timeout=1200
