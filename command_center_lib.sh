@@ -138,13 +138,14 @@ yeet_the_child() {
 
 fancy() {
   total=$(ls $input | wc -l)
-
+  
   (
   cur=0
   prev=0
   timeout=1200 # 20 min
-  while [ $cut -lt $total ] && [ $timeout -gt 0 ]; do
-    echo $total $cur >/dev/stderr
+#  set -x
+  while [ $cur -lt $total ] && [ $timeout -gt 0 ]; do
+#    echo $total $cur >/dev/stderr
     [ $prev -eq $cur ] &&
       timeout=$((timeout - 1))
     cur=$(ls $output | wc -l)
