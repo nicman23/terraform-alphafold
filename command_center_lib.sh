@@ -143,8 +143,10 @@ fancy() {
   cur=0
   prev=0
   timeout=1200 # 20 min
-  while [ $total -ge $cur ] || [ $timeout -gt 0 ]; do
-    timeout=$((timeout - 1))
+  while [ $cut -lt $total ] && [ $timeout -gt 0 ]; do
+    echo $total $cur >/dev/stderr
+    [ $prev -eq $cur ] &&
+      timeout=$((timeout - 1))
     cur=$(ls $output | wc -l)
     diff=$((cur - prev))
     seq 0 $diff | sed 1d
@@ -152,7 +154,7 @@ fancy() {
     sleep 1
   done
   ) |
-  pv --interval 300 --average-rate-window 150 -l -s $total > /dev/null
+  pv --interval 300 -l -s $total > /dev/null
 }
 
 main_af() {

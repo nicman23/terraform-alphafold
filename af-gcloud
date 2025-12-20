@@ -4,7 +4,7 @@ input=af_input
 output=af_output
 template=a100-af
 cloud=gcloud
-max_vms=20
+max_vms=100
 name_prefix=$template
 
 
@@ -96,21 +96,20 @@ echo refreshing state please wait
 wait_for_lock
 refresh_state
 
-main_af &
-
-fancy
-
+if [ $(ls $output $input | grep json | sort |uniq -u | wc -l ) -gt 100 ]; then
+  main_af &
+  fancy
+fi
 wait
 
 (
-cd af_output
+cd $output
 for i in *; do ( ls $i/*/*cif &>/dev/null) || rm -fr $i ; done 2>/dev/null
 
 )
 
+max_vms=2
 main_af &
-
 fancy
-
 wait
 
