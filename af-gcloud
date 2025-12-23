@@ -80,7 +80,7 @@ fi
 mkdir -p $output
 
 get_files() {
-  ls $input $output | grep -v msa_output | grep json | sort | uniq -u |
+  ls $input $output | grep json | sort | uniq -u |
     while read l; do
       [ -e "$input/$l" ] && echo $input/$l
     done

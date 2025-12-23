@@ -4,7 +4,7 @@ input=af_input
 output=af_output
 template=msa-af
 cloud=gcloud
-max_vms=2
+max_vms=50
 name_prefix=$template
 
 
@@ -51,7 +51,7 @@ send_work() {
       docker run --name main \
         -e PYTHONUNBUFFERED=1 \
       --volume /root/:/root/ \
-      alphafold3-msa \
+      alphafold3 \
       python -u run_alphafold.py \
       --run_inference=False \
       --run_data_pipeline=True \
@@ -71,14 +71,14 @@ send_work() {
 EOF
 }
 
-if ! ls $input/*json &>/dev/null; then
+if ! ls $input/ | grep -q json &>/dev/null; then
   echo $input empty
   exit 2
 fi
 mkdir -p $output
 
 get_files() {
-  ls $input $output | grep -v msa_output | grep json | sort | uniq -u |
+  ls $input $output | grep json | sort | uniq -u |
     while read l; do
       [ -e "$input/$l" ] && echo $input/$l
     done
@@ -95,20 +95,4 @@ wait_for_lock
 refresh_state
 
 main_af &
-
 fancy
-
-wait
-
-(
-cd af_output
-for i in *; do ( ls $i/*/*cif &>/dev/null) || rm -fr $i ; done 2>/dev/null
-
-)
-
-main_af &
-
-fancy
-
-wait
-
