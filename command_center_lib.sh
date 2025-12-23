@@ -48,15 +48,15 @@ create_and_send () {
 
   while ! check_health; do sleep 5; done
   echo $name is up - sending work
-  echo $name > created_vms
+  echo $name >> created_vms
   while ! ( send_work ); do true; done #&>> ${name}.sender.log
 
-(
-  while ! af_do_work; do sleep 1; done
+  (
+    af_do_work
 
-  fetcher
-  delete_vm
-) &
+    fetcher
+    delete_vm
+  ) &
 }
 
 af_do_work() {
@@ -77,12 +77,11 @@ af_do_work() {
     fi
   done &>> ${name}.work.log
 
-
-  if [ $? -eq 137 ]; then
-    echo received immidiate exit
-    exit
-  fi
-  return 0
+#  if [ $? -eq 137 ]; then
+#    echo received immidiate exit
+#    exit
+#  fi
+#  return 0
 }
 
 fetcher() {
@@ -114,13 +113,15 @@ get_msa_too() {
 }
 
 cleanup() {
+  echo ctrl c to kill now
+  sleep 5
+  trap 'echo no, please wait' EXIT HUP INT QUIT PIPE TERM
   echo exiting
   echo deleting tmp
   kill -15 $(jobs -p)
   kill -15 $(jobs -p)
 
   rm -rf ${tmpfiles[@]} workdir/
-  echo ctrl c to kill now
 
   for i in $(cat created_vms); do
     delete-vm $i
@@ -135,30 +136,29 @@ yeet_the_child() {
   kill -15 $(jobs -p)
 }
 
-
-fancy() {
+fancy () {
   total=$(ls $input | wc -l)
-  
+  start=$(ls $output | wc -l)
+
   (
-  cur=0
-  prev=0
-  timeout=1200 # 20 min
-#  set -x
-  while [ $cur -lt $total ] && [ $timeout -gt 0 ]; do
-#    echo $total $cur >/dev/stderr
-    if [ $prev -eq $cur ];
-      timeout=$((timeout - 1))
-    else
-      timeout=1200
-    fi
-    cur=$(ls $output | wc -l)
-    diff=$((cur - prev))
-    seq 0 $diff | sed 1d
-    prev=$cur
-    sleep 1
-  done
-  ) |
-  pv --interval 300 -l -s $total > /dev/null
+    cur=0
+    prev=$start
+    timeout=1600
+    while [ $cur -lt $total ] && [ $timeout -gt 0 ]
+    do
+      cur=$(ls $output | wc -l)
+      if [ $prev -eq $cur ]
+      then
+        timeout=$((timeout - 1))
+      else
+        timeout=1200
+      fi
+      diff=$((cur - prev))
+      seq 0 $diff | sed 1d
+      prev=$cur
+      sleep 1
+    done
+  ) | pv --interval 3 -l -s $((total - start)) > /dev/null
 }
 
 main_af() {
@@ -167,8 +167,15 @@ main_af() {
 
   files=( $(get_files) )
   files_m=$(( ${#files[@]} -1 ))
+  vms_t=$(( files_m / 100 ))
+  vms_t=$(( vms_t + 1 ))
+  if [ $vms_t -lt $max_vms ]; then
+    max_vms=$vms_t
+  fi
   step=$(( files_m / max_vms ))
   files_i=0
+
+  rm created_vms
 
   while [ $files_m -ge $files_i ] ; do
     t_d=$(mktemp -dp .)
