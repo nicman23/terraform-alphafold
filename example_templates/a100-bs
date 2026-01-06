@@ -1,0 +1,10 @@
+{
+  "zone": "dummy",
+  "machine_type": "a2-highgpu-1g",
+  "cloud": "gcloud",
+  "boot_image": "ubuntu-os-accelerator-images/ubuntu-accelerator-2404-amd64-with-nvidia-580",
+  "boot_image_size": 750,
+  "spot_vm": true,
+  "auto_delete": false,
+  "work": "echo true  "
+}

@@ -1,0 +1,11 @@
+{
+  "zone": "dummy",
+  "cloud": "gcloud",
+  "machine_type": "m3-ultramem-32",
+  "boot_image": "af-msa-2",
+  "boot_image_size": 750,
+  "boot_image_type": "pd-ssd",
+  "spot_vm": true,
+  "auto_delete": true,
+  "work": ""
+}
