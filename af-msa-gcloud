@@ -6,7 +6,7 @@ template=msa-af
 cloud=gcloud
 max_vms=50
 name_prefix=$template
-
+file_weight=10
 
 if [ -z "$STY" ]; then
   echo must be run from a \(GNU\) screen
@@ -29,43 +29,44 @@ send_work() {
 #   sssh 'while read dir; mkdir -p $dir'
   sssh killall -9 bash
   cat << EOF | sssh cat - \> work.sh
-  ln -fs /root/mlibs /root/public_databases
+
+  rsync -r /root/mlibs /dev/shm/
+  mkdir /root/public_databases/
+  mount -B /dev/shm/mlibs/ /root/public_databases/
+
   rm -rf $output workdir
   mkdir $output workdir
   cd $input
   rm /root/work_done /root/final_done
   for i in *json; do
     try=0
-    success=1
     while [ \$try -lt 3 ]; do
-      if ls /root/workdir/\$i/*/*cif &>/dev/null; then
-        success=0
-        break
-      fi
       try=\$((try+1))
       rm -rf /root/workdir/\$i
-    mkdir -p /root/workdir/\$i
-    cp /root/$input/\$i /root/workdir/\$i/
-    [ -e /root/$output/\$i ] && continue
-    docker rm main
+      mkdir -p /root/workdir/\$i
+      cp /root/$input/\$i /root/workdir/\$i/
+
+      [ -e /root/$output/\$i ] && continue
+      docker rm main
       docker run --name main \
         -e PYTHONUNBUFFERED=1 \
-      --volume /root/:/root/ \
-      alphafold3 \
-      python -u run_alphafold.py \
-      --run_inference=False \
-      --run_data_pipeline=True \
-      --json_path=/root/$input/\$i \
-      --model_dir=/root/models \
-      --output_dir=/root/workdir/\$i
-    docker wait main
+        --volume /root/:/root/ \
+        alphafold3 \
+        python -u run_alphafold.py \
+        --run_inference=False \
+        --run_data_pipeline=True \
+        --json_path=/root/$input/\$i \
+        --model_dir=/root/models \
+        --output_dir=/root/workdir/\$i
+      docker wait main
       docker logs main &>> /root/workdir/\$i/log
-    docker rm main
+      docker rm main
+      if ls /root/workdir/\$i/*/*_data.json &>/dev/null; then
+        mv /root/workdir/\$i /root/$output/
+        echo \$i >> /root/work_done
+        break
+      fi
     done
-
-    mv /root/workdir/\$i /root/$output/
-    echo \$i >> /root/work_done
-
   done
   touch /root/final_done
 EOF

@@ -6,6 +6,7 @@ template=a100-af
 cloud=gcloud
 max_vms=50
 name_prefix=$template
+file_weight=100
 
 
 if [ -z "$STY" ]; then

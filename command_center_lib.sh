@@ -143,7 +143,7 @@ fancy () {
   (
     cur=0
     prev=$start
-    timeout=1600
+    timeout=99999999
     while [ $cur -lt $total ] && [ $timeout -gt 0 ]
     do
       cur=$(ls $output | wc -l)
@@ -151,7 +151,7 @@ fancy () {
       then
         timeout=$((timeout - 1))
       else
-        timeout=1200
+        timeout=3600
       fi
       diff=$((cur - prev))
       seq 0 $diff | sed 1d
@@ -167,7 +167,7 @@ main_af() {
 
   files=( $(get_files) )
   files_m=$(( ${#files[@]} -1 ))
-  vms_t=$(( files_m / 100 ))
+  vms_t=$(( files_m / file_weight ))
   vms_t=$(( vms_t + 1 ))
   if [ $vms_t -lt $max_vms ]; then
     max_vms=$vms_t
