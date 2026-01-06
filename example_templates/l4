@@ -1,0 +1,13 @@
+{
+  "cloud": "gcloud",
+  "zone": "",
+  "machine_type": "g2-standard-4",
+  "accelerator": {
+    "type": "nvidia-l4",
+    "count": 1
+  },
+  "boot_image_size": 50,
+  "spot_vm": true,
+  "auto_delete": true,
+  "work": "echo true  "
+}

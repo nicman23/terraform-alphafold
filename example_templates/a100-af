@@ -1,0 +1,10 @@
+{
+  "zone": "dummy",
+  "machine_type": "a2-highgpu-1g",
+  "cloud": "gcloud",
+  "boot_image": "af-40",
+  "boot_image_size": 750,
+  "spot_vm": true,
+  "auto_delete": true,
+  "work": "echo true  "
+}

@@ -1,0 +1,10 @@
+{
+  "zone": "dummy",
+  "machine_type": "a2-highgpu-1g",
+  "cloud": "gcloud",
+  "boot_image": "bindcraft",
+  "boot_image_size": 750,
+  "spot_vm": false,
+  "auto_delete": false,
+  "work": "echo true  "
+}
