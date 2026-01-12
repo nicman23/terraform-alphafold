@@ -1,4 +1,12 @@
-#!/bin/bash
+#!/bin/bash -x
+
+input=$1
+output=boltz_outputs_${input}
+template=a100-boltz
+cloud=gcloud
+max_vms=1
+name_prefix=$template
+file_weight=1000
 
 if [ -z "$STY" ]; then
   echo must be run from a \(GNU\) screen
@@ -7,50 +15,47 @@ fi
 
 source $(dirname $(realpath $0))/command_center_lib.sh
 
-
 get_additional_files() {
   (
   while read l ; do
-    echo $l;  jq < $l | grep Path\": | rev | cut -f2 -d\" | rev | sed "s~^~./$input/~g";
-  done 2>/dev/null
-  )
+    echo $l; yq -r '.sequences[].protein.msa' < $l | grep -v null
+  done
+  ) # | tee debug
 }
+
 send_work() {
   sssh rm -rf $output $input workdir work_done final_done &>/dev/null
   pv $work_zstd | sssh 'zstd -d | tar -xf -'
-  ls af_output/ |
-   sssh 'while read dir; mkdir -p $dir'
+
   cat << EOF | sssh cat - \> work.sh
-  rm -rf $output workdir
+  . venv/bin/activate
+  pkill python -9
+  touch /root/.boltz/mols.tar
+  rm -rf $output workdir /root/work_done /root/final_done
   mkdir $output workdir
-  cd $input
-  rm /root/work_done /root/final_done
-  for i in *json; do
+
+  for i in $input/*yaml; do
     mkdir -p /root/workdir/\$i
-    cp /root/$input/\$i /root/workdir/\$i/
     [ -e /root/$output/\$i ] && continue
-    boltz predict ${input}/\$i --out_dir /root/workdir/\$i --use_potentials
-    mv /root/workdir/\$i /root/$output/
-    echo \$i >> /root/work_done
+
+    if boltz predict \$i --out_dir /root/workdir/\$(basename \$i) --use_potentials; then
+      mv /root/workdir/\$(basename \$i)/* /root/$output/\$(basename \$i)
+      echo \$(basename \$i) >> work_done
+    fi
 
   done
   touch /root/final_done
 EOF
 }
 
-input=$1
-output=boltz_outputs_${input}
-template=boltz-aws-L40S
-cloud=aws
-
-if ! ls $input/*json &>/dev/null; then
+if ! ls $input/*yaml &>/dev/null; then
   echo $input empty
-exit 2
+  exit 2
 fi
-mkdir -p $output
 
+mkdir -p $output
 get_files() {
-  ls $input $output | grep -v msa_output | grep json | sort | uniq -u |
+  ls $input $output | grep -v a3m | grep yaml | sort | uniq -u |
     while read l; do
       [ -e $input/$l ] && echo $input/$l
     done
@@ -58,10 +63,8 @@ get_files() {
 
 files=( $(get_files) )
 files_m=$(( ${#files[@]} -1 ))
-max_vms=4
 step=$(( files_m / max_vms ))
 files_i=0
-name_prefix=$(basename $(realpath .) |  tr '[:upper:]' '[:lower:]')
 
 created_vms=()
 
@@ -73,7 +76,7 @@ wait_for_lock
 refresh_state
 
 main_af &
-
+set +x
 fancy
 
 wait

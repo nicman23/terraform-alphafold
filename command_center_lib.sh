@@ -104,14 +104,6 @@ fetcher() {
   done
 }
 
-get_msa_too() {
-  (
-  while read l ; do
-    echo $l;  jq < $l | grep Path\": | rev | cut -f2 -d\" | rev | sed "s~^~./$input/~g";
-  done 2>/dev/null
-  )
-}
-
 cleanup() {
   echo ctrl c to kill now
   sleep 5
@@ -183,7 +175,7 @@ main_af() {
 
     for i in `seq $files_i $(( step + files_i ))`; do
       echo ${files[$i]}
-    done | get_msa_too  | sort | uniq > $t_d/part.txt
+    done | get_additional_files | sort | uniq > $t_d/part.txt
     files_i=$(( files_i + step + 1 ))
 
     tar -cf - -T $t_d/part.txt |

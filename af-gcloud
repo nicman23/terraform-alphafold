@@ -17,11 +17,9 @@ fi
 source $(dirname $(realpath $0))/command_center_lib.sh
 
 get_additional_files() {
-  (
   while read l ; do
     echo $l;  jq < $l | grep Path\": | rev | cut -f2 -d\" | rev | sed "s~^~./$input/~g";
   done 2>/dev/null
-  )
 }
 
 send_work() {
