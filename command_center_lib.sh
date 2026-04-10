@@ -168,9 +168,8 @@ main_af() {
   files_i=0
 
   echo this will create $max_vms
-  
 
-  rm created_vms
+  [ -e created_vms ] && rm created_vms 
 
   while [ $files_m -ge $files_i ] ; do
     t_d=$(mktemp -dp .)
