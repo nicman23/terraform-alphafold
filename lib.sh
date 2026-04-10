@@ -104,6 +104,17 @@ wait_for_lock() {
   done
 }
 
+mass_delete_vm() {
+  wait_for_lock
+
+  touch $tfvar_tmp
+  for name in $@; do
+    jq 'del(.vms["'$name'"])' $tfvar > $tfvar_tmp
+  done
+
+  apply_changes
+}
+
 delete_vm () {
   wait_for_lock
 

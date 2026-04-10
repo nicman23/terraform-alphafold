@@ -1,12 +1,12 @@
-#!/bin/bash -x
+#!/bin/bash
 
 input=$1
 output=boltz_outputs_${input}
-template=a100-boltz
+template=rtx6k-boltz
 cloud=gcloud
-max_vms=1
+max_vms=20
 name_prefix=$template
-file_weight=1000
+file_weight=10
 
 if [ -z "$STY" ]; then
   echo must be run from a \(GNU\) screen
@@ -61,10 +61,9 @@ get_files() {
     done
 }
 
-files=( $(get_files) )
-files_m=$(( ${#files[@]} -1 ))
-step=$(( files_m / max_vms ))
-files_i=0
+if ! ls *a3m  &>/dev/null; then
+  echo the script expects the a3m files to be in the currect directory
+fi
 
 created_vms=()
 
@@ -75,6 +74,7 @@ echo refreshing state please wait
 wait_for_lock
 refresh_state
 
+#set -x
 main_af &
 set +x
 fancy

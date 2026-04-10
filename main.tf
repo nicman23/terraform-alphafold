@@ -7,11 +7,11 @@ terraform {
   }
 }
 
-resource "google_compute_project_metadata" "serial_console" {
-  metadata = {
-    enable-serial-port-access = "true"
-  }
-}
+#resource "google_compute_project_metadata" "serial_console" {
+#  metadata = {
+#    enable-serial-port-access = "true"
+#  }
+#}
 
 
 # Define a map variable for VM instance configurations

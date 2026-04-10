@@ -1,11 +1,12 @@
 #!/bin/bash
 
 zone=europe
+#zone=us
 # export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json \
 
 get_sub_zones_gcloud() {
   zones_file="${DIRPATH:-.}/.zones.gcloud.cache"
-  if [ ! -f "$zones_file" ] || [ "$(find "$zones_file" -mtime +5 -print -quit)" ]; then
+  if [ $(wc -l < $zones_file) -lt 10 ] || [ ! -f "$zones_file" ] || [ "$(find "$zones_file" -mtime +5 -print -quit)" ]; then
     echo "Refreshing zones cache: $zones_file" >&2
     gcloud compute machine-types list > "$zones_file"
   else

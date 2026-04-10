@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 source $(dirname $(realpath $0))/lib.sh
 
 in_array() {
@@ -166,6 +166,9 @@ main_af() {
   fi
   step=$(( files_m / max_vms ))
   files_i=0
+
+  echo this will create $max_vms
+  
 
   rm created_vms
 
