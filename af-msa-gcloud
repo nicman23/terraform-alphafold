@@ -7,6 +7,7 @@ cloud=gcloud
 max_vms=50
 name_prefix=$template
 file_weight=10
+SESSION_MODE=1
 
 if [ -z "$STY" ]; then
   echo must be run from a \(GNU\) screen

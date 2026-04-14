@@ -1,10 +1,11 @@
 #!/bin/bash
 
 export PATH="$(dirname $(realpath $0))/google-cloud-sdk/bin:$PATH"
-DIRPATH="$(dirname $(realpath $0))"
-tfvar=terraform.tfvars.json
-tfvar_tmp=$DIRPATH/tmp_$tfvar
-tfvar=$DIRPATH/$tfvar
+#DIRPATH="$(dirname $(realpath $0))"
+#tfvar=terraform.tfvars.json
+#tfvar_tmp=$DIRPATH/tmp_$tfvar
+#tfvar=$DIRPATH/$tfvar
+if [ ! -e $DIRPATH ]; then echo something fucky with dirpath; exit 5; fi
 
 clouds=( $(cat $DIRPATH/.avail.clouds) )
 cloud_functions=(get_sub_zones get_ip_from_name get_zone_from_name reset_vm check_health list_defined list_running power_vm )

@@ -1,5 +1,49 @@
 #!/bin/bash
-source $(dirname $(realpath $0))/lib.sh
+#source $(dirname $(realpath $0))/lib.sh
+
+
+SCRIPT_DIR="$(dirname $(realpath $0))"
+WORK_DIR="$(pwd)"
+SESSION_DIR="$WORK_DIR/terraform-alphafold-session"
+SESSION_MODE="${SESSION_MODE:-0}"
+
+setup_session_dir() {
+  export DIRPATH="$(dirname $(realpath $0))"
+  [ "$SESSION_MODE" == "1" ] && {   export DIRPATH="$SESSION_DIR";  }
+  export tfvar=terraform.tfvars.json
+  export tfvar_tmp=$DIRPATH/tmp_$tfvar
+  export tfvar=$DIRPATH/$tfvar
+  [ "$SESSION_MODE" != "1" ] && { source "$SCRIPT_DIR/lib.sh"; return; }
+
+  if [ -d "$SESSION_DIR" ]; then
+    echo "Using existing session directory: $SESSION_DIR"
+  else
+    echo "Creating session directory: $SESSION_DIR"
+    (
+      cp -r "$SCRIPT_DIR" "$SESSION_DIR"
+      cd "$SESSION_DIR"
+      jq '.vms = {}' "$tfvar" > "$tfvar_tmp"
+      mv "$tfvar_tmp" "$tfvar"
+      terraform init
+    )
+  fi
+  source "$SESSION_DIR/lib.sh"
+}
+
+cleanup_session_dir() {
+  [ "$SESSION_MODE" != "1" ] && return
+  echo "Cleaning up session directory: $SESSION_DIR"
+  cd "$SESSION_DIR"
+  echo "Destroying managed VMs..."
+  wait_for_lock
+  jq '.vms = {}' "$tfvar" > "$tfvar_tmp"
+  apply_changes
+  echo "Removing session directory..."
+  cd "$WORK_DIR"
+  rm -rf "$SESSION_DIR"
+}
+
+setup_session_dir
 
 in_array() {
   el=$1
@@ -118,6 +162,8 @@ cleanup() {
   for i in $(cat created_vms); do
     delete-vm $i
   done
+
+  cleanup_session_dir
 }
 
 yeet_the_child() {
@@ -129,9 +175,8 @@ yeet_the_child() {
 }
 
 fancy () {
-  total=$(ls $input | wc -l)
-  start=$(ls $output | wc -l)
-
+  total=$(ls $input | grep -v "$fancy_ignore" | wc -l)
+  start=$(ls $output | grep -v 'final_done' | wc -l)
   (
     cur=0
     prev=$start

@@ -9,3 +9,5 @@ tmp_terraform.tfvars.json
 templates/
 .zone*
 aws/
+.avail.clouds
+*json
