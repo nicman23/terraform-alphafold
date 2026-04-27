@@ -4,7 +4,7 @@ input=$1
 output=gmx_outputs_${input}
 template=rtx6k-gmx
 cloud=gcloud
-max_vms=10
+max_vms=30
 name_prefix=$template
 file_weight=1
 fancy_ignore='.mdp'
@@ -82,9 +82,10 @@ trap cleanup ERR
 echo refreshing state please wait
 wait_for_lock
 refresh_state
-set -x
+#set -x
 main_af &
-set +x
+#set +x
 fancy
-
-#wait
+echo done!!!!!!!!!!!!!!!!
+read
+wait

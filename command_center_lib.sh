@@ -236,7 +236,7 @@ main_af() {
     refresh_state
     sleep 1m
 
-    for name in ${created_vms[@]}; do
+    for name in ${created_vms[@]} $(cat created_vms); do
       check_health; health=$?
       zone=$(get_zone_from_name)
       case $health in
