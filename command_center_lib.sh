@@ -175,6 +175,7 @@ yeet_the_child() {
 }
 
 fancy () {
+  [ -z "$fancy_ignore" ] && fancy_ignore=asdasdasdasdasdasdasd
   total=$(ls $input | grep -v "$fancy_ignore" | wc -l)
   start=$(ls $output | grep -v 'final_done' | wc -l)
   (
