@@ -1,5 +1,10 @@
 #!/bin/bash
+export DIRPATH="$(dirname $(realpath $0))"
+export tfvar=terraform.tfvars.json
+export tfvar_tmp=$DIRPATH/tmp_$tfvar
+export tfvar=$DIRPATH/$tfvar
 source $(dirname $(realpath $0))/lib.sh
+
 name=$1
 shift 1
 create_vm "$@"
