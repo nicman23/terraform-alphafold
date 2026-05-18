@@ -79,13 +79,6 @@ created_vms=()
 trap cleanup EXIT
 trap cleanup ERR
 
-echo refreshing state please wait
-wait_for_lock
-refresh_state
-#set -x
 main_af &
-#set +x
 fancy
-echo done!!!!!!!!!!!!!!!!
-read
 wait

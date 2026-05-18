@@ -40,7 +40,7 @@ cleanup_session_dir() {
   apply_changes
   echo "Removing session directory..."
   cd "$WORK_DIR"
-  rm -rf "$SESSION_DIR"
+#  rm -rf "$SESSION_DIR"
 }
 
 setup_session_dir
@@ -60,42 +60,35 @@ create_and_send () {
   name=''
   success=0
 
-
   trap yeet_the_child EXIT
 
-  echo searching for already running instance
+  echo searching for already running instance with the prefix $name_prefix
   for name in $(list_running | grep $name_prefix); do
-    in_array $name ${created_vms[@]} && continue
+    in_array $name $( cat created_vms ) && continue
+    echo checking $name
     if sssh true; then
       sssh rm -rf $input $output &>/dev/null
       success=1
       break
     else
+      echo check $name > check
+      echo delete called on $name >> serious
       delete_vm
     fi
   done
 
   if [ "$success" -eq 0 ]; then
-    echo did not find a avail instance, creating a new one
+    echo did not find a avail instance, naming a new one
     name="$name_prefix-$(uuidgen)"
-    create_vm $template echo
-    echo created $name
-    while ! sssh true; do
-      sleep 2
-    done
+    create_vm $template
   else
     echo found avail vm $name
     sssh rm final_done &>/dev/null
   fi
-  created_vms+=($name)
-  sleep 1m
-
-  while ! check_health; do sleep 5; done
-  echo $name is up - sending work
   echo $name >> created_vms
-  while ! ( send_work ); do true; done #&>> ${name}.sender.log
 
   (
+    send_work
     af_do_work
 
     fetcher
@@ -103,9 +96,61 @@ create_and_send () {
   ) &
 }
 
-af_do_work() {
+recreate_vm() {
+  (
+    set -x
+    echo recreate called on $name >> serious
+    echo waiting
 
-### fetcher thread ###
+    if [[ $zone != null ]]; then
+      delete_vm
+    fi
+
+    cat $t_d/part.txt |
+      while read part_l; do
+        [ -e $output/$(basename $part_l) ] && continue
+        echo $part_l
+      done > $t_d/part2.txt
+
+    tar -cf - -T $t_d/part2.txt |
+    zstd -1 > $work_zstd
+
+    create_vm $template $zone
+    while ! check_health; do sleep 5; done
+    echo sending
+    send_work
+    set +x
+  ) >> ${name}.recreate.log
+}
+
+doctor() {
+  (
+#    refresh_state
+echo td is $t_d
+set -x
+    check_health; health=$?
+    while [ $health -ne 0 ]; do
+      zone=$(get_zone_from_name)
+      [[ $zone == "null" ]] && recreate_vm
+      case $health in
+        0) return 0; break;;
+        1) power_vm; break;;
+        2) reset_vm; break;;
+        3) recreate_vm; break
+      esac 2>&1 | if grep -q  "Quota"; then
+        echo $name migrating to different zone
+        recreate_vm
+      fi
+      refresh_state
+      check_health; health=$?
+    done
+
+    send_work
+set +x
+  ) &> ${name}.doctor.log
+}
+
+af_do_work() {
   (
     sleep 1m
     while ! sssh cat final_done; do
@@ -115,18 +160,21 @@ af_do_work() {
     touch $output/final_done
   )  &>> ${name}.fetch.log &
 
+  try_before_doctor=0
   while ! sssh cat final_done &>/dev/null; do
     if ! sssh 'bash work.sh'; then
-      echo __failure__
+    
+      echo ____vm seams down____  $name >> serious
+      if [ $try_before_doctor -ge 5 ]; then
+        doctor
+      else
+        sleep 30
+        try_before_doctor=$(( try_before_doctor +1 ))
+      fi
     fi
   done &>> ${name}.work.log
-
-#  if [ $? -eq 137 ]; then
-#    echo received immidiate exit
-#    exit
-#  fi
-#  return 0
 }
+
 
 fetcher() {
   buf="$(sssh cat work_done\; rm work_done)"
@@ -158,12 +206,12 @@ cleanup() {
   kill -15 $(jobs -p)
 
   rm -rf ${tmpfiles[@]} workdir/
+#
+#  for i in $(cat created_vms); do
+#    delete-vm $i
+#  done
 
-  for i in $(cat created_vms); do
-    delete-vm $i
-  done
-
-  cleanup_session_dir
+#  cleanup_session_dir
 }
 
 yeet_the_child() {
@@ -200,6 +248,7 @@ fancy () {
 }
 
 main_af() {
+  echo -n > created_vms
 
   trap yeet_the_child EXIT
 
@@ -215,8 +264,6 @@ main_af() {
 
   echo this will create $max_vms
 
-  [ -e created_vms ] && rm created_vms 
-
   while [ $files_m -ge $files_i ] ; do
     t_d=$(mktemp -dp .)
     tmpfiles+=($PWD/$t_d/)
@@ -226,26 +273,12 @@ main_af() {
     done | get_additional_files | sort | uniq > $t_d/part.txt
     files_i=$(( files_i + step + 1 ))
 
+    work_zstd=$PWD/$t_d/$input.tar.zst
+
     tar -cf - -T $t_d/part.txt |
     zstd -1 > $t_d/$input.tar.zst
-    rm $t_d/part.txt
-    work_zstd=$PWD/$t_d/$input.tar.zst
+
     create_and_send
   done
 
-  while true; do
-    refresh_state
-    sleep 1m
-
-    for name in ${created_vms[@]} $(cat created_vms); do
-      check_health; health=$?
-      zone=$(get_zone_from_name)
-      case $health in
-        1) power_vm; break;;
-        2) reset_vm; break;;
-        3) created_vms=( ${created_vms[@]/$name} ); break;;
-      esac
-
-    done
-  done
 }

@@ -2,7 +2,7 @@
 
 input=$1
 output=boltz_outputs_${input}
-template=rtx6k-boltz
+[ ! -z $2 ] && template=$2 || template=rtx6k-boltz
 cloud=gcloud
 max_vms=20
 name_prefix=$template
@@ -38,7 +38,7 @@ send_work() {
     mkdir -p /root/workdir/\$i
     [ -e /root/$output/\$i ] && continue
 
-    if boltz predict \$i --out_dir /root/workdir/\$(basename \$i) --use_potentials; then
+    if boltz predict \$i --out_dir /root/workdir/\$(basename \$i) --use_potentials --diffusion_samples 1; then
       mv /root/workdir/\$(basename \$i)/* /root/$output/\$(basename \$i)
       echo \$(basename \$i) >> work_done
     fi
@@ -48,20 +48,23 @@ send_work() {
 EOF
 }
 
-if ! ls $input/*yaml &>/dev/null; then
+if ! ls $input | grep -m1 yaml &>/dev/null; then # bash arg limit
   echo $input empty
   exit 2
 fi
 
 mkdir -p $output
 get_files() {
-  ls $input $output | grep -v a3m | grep yaml | sort | uniq -u |
+#  cnt=0
+  ls $input $output | grep -v a3m | grep -v csv | grep yaml | sort | uniq -u |
     while read l; do
       [ -e $input/$l ] && echo $input/$l
+#      cnt=$((cnt + 1))
     done
+#  echo Found $cnt to be processed > /dev/stderr
 }
 
-if ! ls *a3m  &>/dev/null; then
+if ! (ls *a3m || ls *csv) &>/dev/null; then
   echo the script expects the a3m files to be in the currect directory
 fi
 
@@ -70,13 +73,8 @@ created_vms=()
 trap cleanup EXIT
 trap cleanup ERR
 
-echo refreshing state please wait
-wait_for_lock
-refresh_state
-
 #set -x
 main_af &
-set +x
 fancy
 
 wait

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-zone=europe
-#zone=us
+#zone=europe
+region=us
 # export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json \
 
 get_sub_zones_gcloud() {
@@ -12,7 +12,7 @@ get_sub_zones_gcloud() {
   else
     echo "Using cached zones file: $zones_file" >&2
   fi
-  cat "$zones_file" | grep $machine_type | grep $zone | awk '{print $2}'
+  cat "$zones_file" | grep $machine_type | grep $region | awk '{print $2}'
 }
 
 get_ip_from_name_gcloud() {

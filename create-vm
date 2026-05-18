@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 export DIRPATH="$(dirname $(realpath $0))"
 export tfvar=terraform.tfvars.json
 export tfvar_tmp=$DIRPATH/tmp_$tfvar
