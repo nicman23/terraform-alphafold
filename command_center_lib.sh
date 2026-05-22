@@ -152,27 +152,33 @@ set +x
 
 af_do_work() {
   (
+    set -x
     sleep 1m
     while ! sssh cat final_done; do
       sleep 1m
       fetcher
     done
     touch $output/final_done
+    set +x
   )  &>> ${name}.fetch.log &
 
   try_before_doctor=0
-  while ! sssh cat final_done &>/dev/null; do
-    if ! sssh 'bash work.sh'; then
-    
-      echo ____vm seams down____  $name >> serious
-      if [ $try_before_doctor -ge 5 ]; then
-        doctor
-      else
-        sleep 30
-        try_before_doctor=$(( try_before_doctor +1 ))
+  (
+    set -x
+    while [[ ! 'done' == $(sssh sh -c '[ $(ls '$input' | wc -l) -gt $( (ls '$output' || echo -n ) | wc -l ) ] && echo done' ) ]]; do #&>/dev/null; do
+      if ! sssh 'bash work.sh'; then
+        echo ____vm seams down____  $name >> serious
+        if [ $try_before_doctor -ge 5 ]; then
+          doctor
+        else
+          sleep 30
+          try_before_doctor=$(( try_before_doctor +1 ))
+        fi
       fi
-    fi
-  done &>> ${name}.work.log
+    done
+    echo 'work_done!!'
+    set +x
+  )   &>> ${name}.work.log
 }
 
 

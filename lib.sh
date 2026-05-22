@@ -102,11 +102,12 @@ wait_for_lock() {
 
 mass_delete_vm() {
   wait_for_lock
+  buf="$(cat $tfvar)"
 
   for name in $@; do
-    jq 'del(.vms["'$name'"])' $tfvar > $tfvar_tmp
+    buf=$(echo "$buf" | jq 'del(.vms["'$name'"])')
   done
-
+  echo "$buf" > $tfvar_tmp
   apply_changes
 }
 

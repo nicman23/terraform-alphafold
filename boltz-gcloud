@@ -5,7 +5,7 @@ output=boltz_outputs_${input}
 [ ! -z $2 ] && template=$2 || template=rtx6k-boltz
 cloud=gcloud
 max_vms=20
-name_prefix=$template
+name_prefix=$input-$template
 file_weight=10
 SESSION_MODE=1
 if [ -z "$STY" ]; then
@@ -17,9 +17,9 @@ source $(dirname $(realpath $0))/command_center_lib.sh
 
 get_additional_files() {
   (
-  while read l ; do
-    echo $l; yq -r '.sequences[].protein.msa' < $l | grep -v null
-  done
+  cat
+  ls *csv
+  ls *a3m
   ) # | tee debug
 }
 
@@ -68,13 +68,12 @@ if ! (ls *a3m || ls *csv) &>/dev/null; then
   echo the script expects the a3m files to be in the currect directory
 fi
 
-created_vms=()
 
 trap cleanup EXIT
 trap cleanup ERR
 
 #set -x
-main_af &
+main_af
 fancy
 
 wait
