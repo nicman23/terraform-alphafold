@@ -129,7 +129,9 @@ doctor() {
 echo td is $t_d
 set -x
     check_health; health=$?
-    while [ $health -ne 0 ]; do
+    powerup_tries=5
+    while [ $health -ne 0 ] && [ $powerup_tries -lt 5 ]; do
+      powerup_tries=$(( powerup_tries - 1 ))
       zone=$(get_zone_from_name)
       [[ $zone == "null" ]] && recreate_vm
       case $health in
@@ -137,7 +139,7 @@ set -x
         1) power_vm; break;;
         2) reset_vm; break;;
         3) recreate_vm; break
-      esac 2>&1 | if grep -q  "Quota"; then
+      esac 2>&1 | tee /dev/stderr | if grep -q  "Quota"; then
         echo $name migrating to different zone
         recreate_vm
       fi
@@ -145,16 +147,23 @@ set -x
       check_health; health=$?
     done
 
+    check_health; health=$?
+    [ $health -ne 0 ] && recreate_vm
     send_work
 set +x
   ) &> ${name}.doctor.log
+}
+
+#0 on done
+check_done() {
+  [[ 'done' == $(sssh sh -c '[ $(ls '$input' | wc -l) -gt $( (ls '$output' || echo -n ) | wc -l ) ] && echo done' ) ]]
 }
 
 af_do_work() {
   (
     set -x
     sleep 1m
-    while ! sssh cat final_done; do
+    while ! check_done; do
       sleep 1m
       fetcher
     done
@@ -165,7 +174,7 @@ af_do_work() {
   try_before_doctor=0
   (
     set -x
-    while [[ ! 'done' == $(sssh sh -c '[ $(ls '$input' | wc -l) -gt $( (ls '$output' || echo -n ) | wc -l ) ] && echo done' ) ]]; do #&>/dev/null; do
+    while ! check_done; do #&>/dev/null; do
       if ! sssh 'bash work.sh'; then
         echo ____vm seams down____  $name >> serious
         if [ $try_before_doctor -ge 5 ]; then
