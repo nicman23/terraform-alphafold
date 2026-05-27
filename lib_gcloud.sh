@@ -1,6 +1,6 @@
 #!/bin/bash
 
-zone=europe
+region=europe
 #region=us
 # export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json \
 

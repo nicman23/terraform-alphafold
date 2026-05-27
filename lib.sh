@@ -37,6 +37,7 @@ srsync() {
 
 apply_changes() {
   (
+  trap 'echo no, please wait' EXIT HUP INT QUIT PIPE TERM
   cd $DIRPATH
   if [ $(wc -l $tfvar_tmp | awk '{print $1}') -eq 0 ]; then echo 0 line json $name >> serious; exit; fi
   if terraform apply -lock-timeout=120s -var-file=$tfvar_tmp <<< yes >> terraform.log; then

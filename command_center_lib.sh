@@ -137,7 +137,10 @@ recreate_vm() {
 }
 
 doctor() {
-  [ ! -e creation_done ] && return 0
+  if [ ! -e creation_done ]; then
+    sleep 1m
+    return 0
+  fi
   (
 #    refresh_state
 echo td is $t_d
