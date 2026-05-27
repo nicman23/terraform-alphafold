@@ -71,13 +71,27 @@ create_and_send () {
       success=1
       break
     else
-      echo check $name > check
-      echo delete called on $name >> serious
+      echo check $name
+      echo delete called on $name
       delete_vm
     fi
   done
 
   if [ "$success" -eq 0 ]; then
+
+    refresh_state
+    need_check=1
+    while [ $need_check -eq 1 ]; do
+      need_check=0
+      for name in $(list_running); do
+        if [ -z $(get_ip_from_name) ]; then
+          need_check=1
+          power_vm || recreate_vm
+        fi
+      done
+    done
+
+    name=''
     echo did not find a avail instance, naming a new one
     name="$name_prefix-$(uuidgen)"
     create_vm $template
@@ -99,12 +113,11 @@ create_and_send () {
 recreate_vm() {
   (
     set -x
+
     echo recreate called on $name >> serious
     echo waiting
 
-    if [[ $zone != null ]]; then
-      delete_vm
-    fi
+    delete_vm
 
     cat $t_d/part.txt |
       while read part_l; do
@@ -116,7 +129,7 @@ recreate_vm() {
     zstd -1 > $work_zstd
 
     create_vm $template $zone
-    while ! check_health; do sleep 5; done
+
     echo sending
     send_work
     set +x
@@ -124,31 +137,20 @@ recreate_vm() {
 }
 
 doctor() {
+  [ ! -e creation_done ] && return 0
   (
 #    refresh_state
 echo td is $t_d
 set -x
     check_health; health=$?
-    powerup_tries=5
-    while [ $health -ne 0 ] && [ $powerup_tries -lt 5 ]; do
-      powerup_tries=$(( powerup_tries - 1 ))
-      zone=$(get_zone_from_name)
-      [[ $zone == "null" ]] && recreate_vm
-      case $health in
-        0) return 0; break;;
-        1) power_vm; break;;
-        2) reset_vm; break;;
-        3) recreate_vm; break
-      esac 2>&1 | tee /dev/stderr | if grep -q  "Quota"; then
-        echo $name migrating to different zone
-        recreate_vm
-      fi
-      refresh_state
-      check_health; health=$?
-    done
 
-    check_health; health=$?
-    [ $health -ne 0 ] && recreate_vm
+    case check_health in
+      0) return 0;;
+      1) power_vm || recreate_vm;;
+      2) reset_vm || recreate_vm;;
+      3) recreate_vm;;
+    esac
+
     send_work
 set +x
   ) &> ${name}.doctor.log
@@ -156,7 +158,7 @@ set +x
 
 #0 on done
 check_done() {
-  [[ 'done' == $(sssh sh -c '[ $(ls '$input' | wc -l) -gt $( (ls '$output' || echo -n ) | wc -l ) ] && echo done' ) ]]
+  [[ 'done' == $(sssh sh -c '[ $( ( ls '$input' || echo asd ) | wc -l) -gt $( (ls '$output' || echo -n ) | wc -l ) ] && echo done' ) ]]
 }
 
 af_do_work() {
@@ -230,6 +232,7 @@ cleanup() {
 }
 
 yeet_the_child() {
+  trap 'echo no, please wait' EXIT HUP INT QUIT PIPE TERM
   kill -15 $(jobs -p)
   kill -15 $(jobs -p)
   kill -15 $(jobs -p)
@@ -264,6 +267,7 @@ fancy () {
 
 main_af() {
   echo -n > created_vms
+  rm creation_done
 
   trap yeet_the_child EXIT
 
@@ -295,5 +299,5 @@ main_af() {
 
     create_and_send
   done
-
+  echo > creation_done
 }

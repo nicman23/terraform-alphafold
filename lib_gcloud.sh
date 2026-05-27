@@ -25,13 +25,19 @@ get_zone_from_name_gcloud() {
 }
 
 reset_vm_gcloud() {
-  gcloud compute instances reset $name --zone=$zone #> reset.try
-  refresh_state
+  if gcloud compute instances reset $name --zone=$zone; then
+    refresh_state
+  else
+    return 1
+  fi
 }
 
 power_vm_gcloud() {
-  gcloud compute instances start $name --zone=$zone #> reset.try
-  refresh_state
+  if gcloud compute instances start $name --zone=$zone; then
+    refresh_state
+  else
+    return 1
+  fi
 }
 
 get_status() {
@@ -39,31 +45,25 @@ get_status() {
 }
 
 check_health_gcloud() {
-#  refresh_state
-
   local cloud=gcloud
   zone=$(get_zone_from_name)
+  [[ $zone == 'null' ]] && return 3
 
   case "$(get_status)" in
     RUNNING)
       if check_responding; then
-#        echo is running 2> /dev/null
         return 0
       else
-#        echo is not responding 2> /dev/null
         return 2
       fi
         ;;
     TERMINATED)
-#      echo is down 2> /dev/null
         return 1
         break;;
     STAGING)
-#      echo is starting
       return 0
         ;;
     *)
-#      echo invalid state "$status";
       return 3;;
   esac
 }

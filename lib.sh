@@ -60,17 +60,18 @@ refresh_state() {
 
 last_zone=asd-dsa-asd
 create_vm () {
+  wait_for_lock
   template=$1
   [ -z "$2" ] && ban=$(cat last_zone) || ban=$2
   ban=$( echo $ban | cut -f1,2 -d-)
-  wait_for_lock
   [ -z "$name" ] && name=vm-$(uuidgen)
 
   # dont fail if the requested name is already present in the terraform vars json
   if jq -e --arg nm "$name" '.vms[$nm]' "$tfvar" >/dev/null 2>&1; then
     echo "name '$name' already defined in $tfvar"
-    delete-vm
+    delete_vm
   fi
+
   machine_type=$(eval echo $(jq .machine_type < $DIRPATH/templates/${template}))
   cloud=$(eval echo $(jq .cloud < $DIRPATH/templates/${template}))
   buf="$(get_sub_zones | grep -v $ban) $(get_sub_zones)"
@@ -81,8 +82,12 @@ create_vm () {
       jq --slurpfile vm <(jq '.zone = "'$zone'"' $DIRPATH/templates/${template}) '.'vms'["'$name'"] = $vm[0]' $tfvar > $tfvar_tmp
       if apply_changes; then
         echo $zone > last_zone
-        while ! check_responding; do sleep 1; done
-        return 0
+        for nop in {0..5}; do
+          check_responding &&
+            return 0
+          sleep 1m
+        done
+        delete_vm
       fi
     done
   done
