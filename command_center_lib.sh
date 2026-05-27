@@ -173,18 +173,12 @@ af_do_work() {
     set +x
   )  &>> ${name}.fetch.log &
 
-  try_before_doctor=0
   (
     set -x
     while ! check_done; do #&>/dev/null; do
       if ! sssh 'bash work.sh'; then
         echo ____vm seams down____  $name >> serious
-        if [ $try_before_doctor -ge 5 ]; then
-          doctor
-        else
-          sleep 30
-          try_before_doctor=$(( try_before_doctor +1 ))
-        fi
+        doctor
       fi
     done
     echo 'work_done!!'

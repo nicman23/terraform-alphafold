@@ -83,8 +83,9 @@ create_vm () {
       if apply_changes; then
         echo $zone > last_zone
         for nop in {0..5}; do
+          refresh_state
           check_responding &&
-            return 0
+          return 0
           sleep 1m
         done
         delete_vm
@@ -114,6 +115,7 @@ mass_delete_vm() {
   done
   echo "$buf" > $tfvar_tmp
   apply_changes
+  refresh_state
 }
 
 delete_vm () {
@@ -129,7 +131,8 @@ get_zone_from_name() {
 # advanced bash regardation
 check_responding() {
   refresh_state
-  for try in {1..10}; do
+  for try in {1..4}; do
+    refresh_state
     if ping -qc $(( 1 + ((try -1)*10) )) $(get_ip_from_name) &>/dev/null; then
       (
         cat << EOF

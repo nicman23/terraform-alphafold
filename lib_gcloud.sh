@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#zone=europe
-region=us
+zone=europe
+#region=us
 # export GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/application_default_credentials.json \
 
 get_sub_zones_gcloud() {
@@ -41,7 +41,8 @@ power_vm_gcloud() {
 }
 
 get_status() {
-  gcloud compute instances describe "$name" --zone="$zone" --format='get(status)' 2>/dev/null
+  timeout 5 gcloud compute instances describe "$name" --zone="$zone" \
+    --format='get(status)' # 2>/dev/null
 }
 
 check_health_gcloud() {
