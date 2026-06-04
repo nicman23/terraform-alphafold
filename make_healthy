@@ -5,13 +5,14 @@ name=$1
 
 if [ -z "$name" ];then
   for name in $(eval echo $(list_running)); do
-    echo -n $name :\ \ \ 
+(
     check_health; code=$?
     case $code in
-      1) echo powering up; power_vm;;
-      2) echo reseting; reset_vm;;
-      0) echo ok;;
+      1) echo $name :\ \ \ powering up; power_vm;;
+      2) echo $name :\ \ \ reseting; reset_vm;;
+      0) echo $name :\ \ \ ok;;
     esac
+) &
   done
 else
   check_health; code=$?

@@ -112,7 +112,7 @@ create_and_send () {
 
 recreate_vm() {
   (
-    set -x
+#    set -x
 
     echo recreate called on $name >> serious
     echo waiting
@@ -142,14 +142,14 @@ doctor() {
     return 0
   fi
   (
-#    refresh_state
+    refresh_state
 echo td is $t_d
-set -x
+#set -x
     check_health; health=$?
 
     case check_health in
       0) return 0;;
-      1) power_vm || recreate_vm;;
+      1) echo HEREHREHREHREHR; power_vm || recreate_vm;;
       2) reset_vm || recreate_vm;;
       3) recreate_vm;;
     esac
@@ -166,7 +166,7 @@ check_done() {
 
 af_do_work() {
   (
-    set -x
+#    set -x
     sleep 1m
     while ! check_done; do
       sleep 1m
@@ -177,7 +177,7 @@ af_do_work() {
   )  &>> ${name}.fetch.log &
 
   (
-    set -x
+#    set -x
     while ! check_done; do #&>/dev/null; do
       if ! sssh 'bash work.sh'; then
         echo ____vm seams down____  $name >> serious
@@ -225,11 +225,12 @@ cleanup() {
 #    delete-vm $i
 #  done
 
-#  cleanup_session_dir
+  cleanup_session_dir
 }
 
 yeet_the_child() {
   trap 'echo no, please wait' EXIT HUP INT QUIT PIPE TERM
+
   kill -15 $(jobs -p)
   kill -15 $(jobs -p)
   kill -15 $(jobs -p)

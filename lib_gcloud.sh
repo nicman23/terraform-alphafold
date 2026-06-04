@@ -41,7 +41,7 @@ power_vm_gcloud() {
 }
 
 get_status() {
-  timeout 5 gcloud compute instances describe "$name" --zone="$zone" \
+  timeout 30 gcloud compute instances describe "$name" --zone="$zone" \
     --format='get(status)' # 2>/dev/null
 }
 
